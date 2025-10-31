@@ -1,0 +1,33 @@
+{
+  "apiVersion": 3,
+  "name": "cltd/popup-group",
+  "title": "Popup Group",
+  "category": "widgets",
+  "icon": "screenoptions",
+  "description": "Display a popup group of circular links or popups.",
+  "attributes": {
+    "groupId": {
+      "type": "number",
+      "default": 0
+    },
+    "order": {
+      "type": "string",
+      "default": "asc"
+    },
+    "columnSpan": {
+      "type": "number",
+      "default": 0
+    },
+    "columnOrder": {
+      "type": "number",
+      "default": null
+    },
+    "className": {
+      "type": "string"
+    }
+  },
+  "supports": {
+    "anchor": true,
+    "className": true
+  }
+}

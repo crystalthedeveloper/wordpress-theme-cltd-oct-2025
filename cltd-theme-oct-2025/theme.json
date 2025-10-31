@@ -1,0 +1,99 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/theme.json",
+  "version": 2,
+  "settings": {
+    "appearanceTools": true,
+    "color": {
+      "palette": [
+        { "slug": "cltd-ink", "name": "CLTD Ink", "color": "#000000" },
+        { "slug": "cltd-paper", "name": "CLTD Paper", "color": "#ffffff" },
+        { "slug": "cltd-sun", "name": "CLTD Yellow", "color": "#ffe600" }
+      ],
+      "duotone": []
+    },
+    "typography": {
+      "dropCap": false,
+      "lineHeight": true,
+      "fontFamilies": [
+        {
+          "slug": "playfair-display",
+          "name": "Playfair Display",
+          "fontFamily": "'Playfair Display', serif"
+        },
+        {
+          "slug": "system-sans",
+          "name": "System Sans",
+          "fontFamily": "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        }
+      ],
+      "fontSizes": [
+        { "slug": "small", "size": "0.85rem", "name": "Small" },
+        { "slug": "normal", "size": "1rem", "name": "Normal" },
+        { "slug": "large", "size": "2.75rem", "name": "Hero" }
+      ]
+    },
+    "spacing": {
+      "units": ["px", "em", "rem", "%", "vw", "vh"],
+      "blockGap": "1.5rem"
+    },
+    "layout": {
+      "contentSize": "760px",
+      "wideSize": "1200px",
+      "allowSwitching": true
+    }
+  },
+  "styles": {
+    "color": {
+      "background": "transparent",
+      "text": "#000000"
+    },
+    "typography": {
+      "fontFamily": "var(--wp--preset--font-family--playfair-display)",
+      "lineHeight": "1.55"
+    }
+  },
+  "customTemplates": [
+    {
+      "name": "cltd-home",
+      "title": "Home Page",
+      "postTypes": ["page"],
+      "order": 1
+    },
+    {
+      "name": "cltd-about",
+      "title": "About Page",
+      "postTypes": ["page"],
+      "order": 2
+    },
+    {
+      "name": "cltd-testimonials",
+      "title": "Testimonials Page",
+      "postTypes": ["page"],
+      "order": 3
+    },
+    {
+      "name": "cltd-game-dev-hub",
+      "title": "Game Dev Hub",
+      "postTypes": ["page"],
+      "order": 4
+    },
+    {
+      "name": "cltd-jobs",
+      "title": "Jobs Page",
+      "postTypes": ["page"],
+      "order": 5
+    }
+  ],
+  "templateParts": [
+    {
+      "name": "header",
+      "title": "Header",
+      "area": "header"
+    },
+    {
+      "name": "footer",
+      "title": "Footer",
+      "area": "footer"
+    }
+  ]
+}
