@@ -16,14 +16,33 @@
       return;
     }
 
+    function isAllowedIcon(attachment) {
+      if (!attachment) {
+        return false;
+      }
+      const mime = (attachment.mime || attachment.subtype || '').toLowerCase();
+      const url = (attachment.url || '').toLowerCase();
+
+      if (mime.startsWith('image/')) {
+        return true;
+      }
+
+      if (mime === 'application/json' || /\.json($|\?)/i.test(url)) {
+        return true;
+      }
+
+      if (/\.svgz?($|\?)/i.test(url)) {
+        return true;
+      }
+
+      return false;
+    }
+
     function openMediaFrame() {
       const frame = wp.media({
         title: CLTDPopupAdmin.chooseIcon,
         button: {
           text: CLTDPopupAdmin.useIcon,
-        },
-        library: {
-          type: 'image',
         },
         multiple: false,
       });
@@ -34,8 +53,8 @@
           return;
         }
 
-        if (attachment.subtype !== 'svg+xml' && !/\.svg($|\?)/i.test(attachment.url)) {
-          window.alert(CLTDPopupAdmin.errorSvg);
+        if (!isAllowedIcon(attachment)) {
+          window.alert(CLTDPopupAdmin.errorIcon);
           return;
         }
 

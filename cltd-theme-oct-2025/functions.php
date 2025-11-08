@@ -494,6 +494,7 @@ function cltd_theme_save_popup_group_items($post_id) {
             $label = '';
             $excerpt = '';
             $icon = '';
+            $icon_type = '';
 
             if ('link' === $type) {
                 // Link items must be managed directly on the popup; skip here.
@@ -508,6 +509,7 @@ function cltd_theme_save_popup_group_items($post_id) {
                     $excerpt = wp_strip_all_tags(get_the_excerpt($popup_post));
                     $icon = get_post_meta($popup_post->ID, 'cltd_popup_icon', true);
                     $icon = $icon ? esc_url_raw($icon) : '';
+                    $icon_type = cltd_theme_get_popup_icon_type($popup_post->ID, $icon);
                 } else {
                     $popup_id = 0;
                 }
@@ -522,6 +524,7 @@ function cltd_theme_save_popup_group_items($post_id) {
                     $excerpt = wp_strip_all_tags(get_the_excerpt($popup_post));
                     $icon = get_post_meta($popup_post->ID, 'cltd_popup_icon', true);
                     $icon = $icon ? esc_url_raw($icon) : '';
+                    $icon_type = cltd_theme_get_popup_icon_type($popup_post->ID, $icon);
                 }
             }
 
@@ -536,6 +539,7 @@ function cltd_theme_save_popup_group_items($post_id) {
                 'label'    => $label,
                 'excerpt'  => $excerpt,
                 'icon'     => $icon,
+                'icon_type'=> $icon_type,
                 'order'    => $order,
             ];
         }
@@ -706,6 +710,13 @@ function cltd_theme_prepare_popup_items($raw_items) {
         $slug     = isset($item['slug']) ? sanitize_title($item['slug']) : '';
         $link     = isset($item['link']) ? esc_url($item['link']) : '';
         $icon     = isset($item['icon']) ? esc_url($item['icon']) : '';
+        $icon_type = isset($item['icon_type']) ? sanitize_key($item['icon_type']) : '';
+        if (!$icon_type && $icon) {
+            $icon_type = cltd_theme_detect_icon_type($icon);
+        }
+        if (!in_array($icon_type, ['svg', 'image', 'lottie'], true)) {
+            $icon_type = '';
+        }
         $order    = isset($item['order']) ? (int) $item['order'] : 0;
 
         $url = '';
@@ -719,6 +730,14 @@ function cltd_theme_prepare_popup_items($raw_items) {
                 $popup_post = get_post($popup_id);
                 if ($popup_post && 'cltd_popup' === $popup_post->post_type) {
                     $slug = $popup_post->post_name;
+                    $popup_icon = get_post_meta($popup_post->ID, 'cltd_popup_icon', true);
+                    if ($popup_icon) {
+                        $icon = esc_url($popup_icon);
+                        $icon_type = cltd_theme_get_popup_icon_type($popup_post->ID, $icon);
+                    } else {
+                        $icon = '';
+                        $icon_type = '';
+                    }
                 }
             }
 
@@ -733,6 +752,14 @@ function cltd_theme_prepare_popup_items($raw_items) {
                 $popup_post = get_page_by_path($slug, OBJECT, 'cltd_popup');
                 if ($popup_post) {
                     $popup_id = $popup_post->ID;
+                    $popup_icon = get_post_meta($popup_post->ID, 'cltd_popup_icon', true);
+                    if ($popup_icon) {
+                        $icon = esc_url($popup_icon);
+                        $icon_type = cltd_theme_get_popup_icon_type($popup_post->ID, $icon);
+                    } else {
+                        $icon = '';
+                        $icon_type = '';
+                    }
                 }
             }
         }
@@ -744,6 +771,7 @@ function cltd_theme_prepare_popup_items($raw_items) {
             'popup_id' => $popup_id,
             'url'      => $url,
             'icon'     => $icon,
+            'icon_type'=> $icon_type,
             'order'    => $order,
             'state'    => '',
             'disabled' => false,
@@ -833,6 +861,7 @@ function cltd_theme_render_popup_group_section(array $group, $extra_class = null
         $label = isset($item['label']) ? $item['label'] : '';
         $excerpt = isset($item['excerpt']) ? $item['excerpt'] : '';
         $icon  = isset($item['icon']) ? $item['icon'] : '';
+        $icon_type = isset($item['icon_type']) ? cltd_theme_normalize_icon_type($item['icon_type']) : '';
         $state = isset($item['state']) ? $item['state'] : '';
         $is_disabled = !empty($item['disabled']);
 
@@ -843,14 +872,18 @@ function cltd_theme_render_popup_group_section(array $group, $extra_class = null
         if ($is_disabled) {
             $circle_classes[] = 'circle--inactive';
         }
+        if ($icon) {
+            $circle_classes[] = 'circle--has-icon';
+        }
         ?>
         <li class="circle-item">
-                    <?php if ('popup' === $type && !$is_disabled && $slug) : ?>
-                        <button type="button" class="<?php echo esc_attr(implode(' ', $circle_classes)); ?>" data-popup-slug="<?php echo esc_attr($slug); ?>" <?php if ($popup_id) : ?>data-popup-id="<?php echo esc_attr($popup_id); ?>"<?php endif; ?> data-popup-title="<?php echo esc_attr($label); ?>" aria-label="<?php echo esc_attr(sprintf(__('Open "%s" details', 'cltd-theme-oct-2025'), $label ?: $slug)); ?>">
-                            <span class="circle__core" aria-hidden="true"></span>
-                            <?php if ($icon) : ?>
+        <?php if ('popup' === $type && !$is_disabled && $slug) : ?>
+            <button type="button" class="<?php echo esc_attr(implode(' ', $circle_classes)); ?>" data-popup-slug="<?php echo esc_attr($slug); ?>" <?php if ($popup_id) : ?>data-popup-id="<?php echo esc_attr($popup_id); ?>"<?php endif; ?> data-popup-title="<?php echo esc_attr($label); ?>" aria-label="<?php echo esc_attr(sprintf(__('Open "%s" details', 'cltd-theme-oct-2025'), $label ?: $slug)); ?>">
+                            <?php if ($icon && 'lottie' === $icon_type) : ?>
+                                <span class="circle__icon circle__icon--lottie" aria-hidden="true" data-lottie-icon data-lottie-src="<?php echo esc_url($icon); ?>"></span>
+                            <?php elseif ($icon) : ?>
                                 <span class="circle__icon" aria-hidden="true">
-                                    <img src="<?php echo esc_url($icon); ?>" alt="" />
+                                    <img src="<?php echo esc_url($icon); ?>" alt="" loading="lazy" decoding="async" />
                                 </span>
                             <?php endif; ?>
                             <span class="sr-only"><?php echo esc_html($label); ?></span>
@@ -1525,13 +1558,13 @@ function cltd_theme_render_popup_icon_meta_box($post) {
         </p>
         <p>
             <button type="button" class="button button-secondary" data-popup-icon-upload>
-                <?php esc_html_e('Select SVG Icon', 'cltd-theme-oct-2025'); ?>
+                <?php esc_html_e('Select Icon', 'cltd-theme-oct-2025'); ?>
             </button>
             <button type="button" class="button button-link-delete" data-popup-icon-clear>
                 <?php esc_html_e('Remove', 'cltd-theme-oct-2025'); ?>
             </button>
         </p>
-        <p class="description"><?php esc_html_e('Upload or paste the URL to a 1-color SVG. It will appear centered inside the popup button.', 'cltd-theme-oct-2025'); ?></p>
+        <p class="description"><?php esc_html_e('Use an SVG, PNG, JPG, WebP, GIF, or hosted Lottie JSON animation. It will appear centered inside the popup button.', 'cltd-theme-oct-2025'); ?></p>
     </div>
     <?php
 }
@@ -1556,12 +1589,84 @@ function cltd_theme_save_popup_icon_meta($post_id) {
 
     $icon = isset($_POST['cltd_popup_icon']) ? wp_unslash($_POST['cltd_popup_icon']) : '';
     if ($icon) {
-        update_post_meta($post_id, 'cltd_popup_icon', esc_url_raw($icon));
+        $icon_url = esc_url_raw($icon);
+        update_post_meta($post_id, 'cltd_popup_icon', $icon_url);
+        $icon_type = cltd_theme_detect_icon_type($icon_url);
+        if (!$icon_type) {
+            $icon_type = 'image';
+        }
+        update_post_meta($post_id, 'cltd_popup_icon_type', $icon_type);
     } else {
         delete_post_meta($post_id, 'cltd_popup_icon');
+        delete_post_meta($post_id, 'cltd_popup_icon_type');
     }
 }
 add_action('save_post_cltd_popup', 'cltd_theme_save_popup_icon_meta');
+
+/**
+ * Normalize a stored popup icon type value.
+ *
+ * @param string $type Raw type.
+ * @return string
+ */
+function cltd_theme_normalize_icon_type($type) {
+    $type = sanitize_key($type);
+    return in_array($type, ['svg', 'image', 'lottie'], true) ? $type : '';
+}
+
+/**
+ * Infer the icon type from a URL.
+ *
+ * @param string $icon_url Icon URL.
+ * @return string
+ */
+function cltd_theme_detect_icon_type($icon_url) {
+    if (!$icon_url) {
+        return '';
+    }
+
+    $path = (string) parse_url($icon_url, PHP_URL_PATH);
+    $extension = $path ? strtolower(pathinfo($path, PATHINFO_EXTENSION)) : '';
+
+    if ('json' === $extension) {
+        return 'lottie';
+    }
+
+    if (in_array($extension, ['svg', 'svgz'], true)) {
+        return 'svg';
+    }
+
+    if (in_array($extension, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif'], true)) {
+        return 'image';
+    }
+
+    return '';
+}
+
+/**
+ * Resolve the icon type for a popup.
+ *
+ * @param int         $post_id  Popup post ID.
+ * @param string|null $icon_url Optional URL for faster lookup.
+ * @return string
+ */
+function cltd_theme_get_popup_icon_type($post_id, $icon_url = null) {
+    $stored = get_post_meta($post_id, 'cltd_popup_icon_type', true);
+    $normalized = cltd_theme_normalize_icon_type($stored);
+    if ($normalized) {
+        return $normalized;
+    }
+
+    $source = $icon_url;
+    if (!$source) {
+        $source = get_post_meta($post_id, 'cltd_popup_icon', true);
+    }
+    if ($source) {
+        return cltd_theme_detect_icon_type($source);
+    }
+
+    return '';
+}
 
 /**
  * Enqueue popup admin assets.
@@ -1587,13 +1692,313 @@ function cltd_theme_popup_admin_assets($hook) {
         'cltd-popup-admin',
         'CLTDPopupAdmin',
         [
-            'chooseIcon' => __('Choose SVG Icon', 'cltd-theme-oct-2025'),
-            'useIcon'    => __('Use this icon', 'cltd-theme-oct-2025'),
-            'errorSvg'   => __('Please select an SVG file for the icon.', 'cltd-theme-oct-2025'),
+            'chooseIcon' => __('Choose Icon', 'cltd-theme-oct-2025'),
+            'useIcon'    => __('Use this asset', 'cltd-theme-oct-2025'),
+            'errorIcon'  => __('Please select an SVG, image (PNG/JPG/WebP/GIF), or Lottie JSON file.', 'cltd-theme-oct-2025'),
         ]
     );
 }
 add_action('admin_enqueue_scripts', 'cltd_theme_popup_admin_assets');
+
+/**
+ * Register meta for page popup flag.
+ */
+function cltd_theme_register_page_popup_meta() {
+    register_post_meta(
+        'page',
+        'cltd_open_in_popup',
+        [
+            'type'         => 'boolean',
+            'single'       => true,
+            'default'      => false,
+            'show_in_rest' => true,
+            'auth_callback' => function() {
+                return current_user_can('edit_pages');
+            },
+        ]
+    );
+}
+add_action('init', 'cltd_theme_register_page_popup_meta');
+
+/**
+ * Register page popup settings meta box.
+ */
+function cltd_theme_register_page_popup_meta_box() {
+    add_meta_box(
+        'cltd-page-popup-settings',
+        __('Popup Display', 'cltd-theme-oct-2025'),
+        'cltd_theme_render_page_popup_meta_box',
+        'page',
+        'side'
+    );
+}
+add_action('add_meta_boxes', 'cltd_theme_register_page_popup_meta_box');
+
+/**
+ * Render page popup settings meta box.
+ *
+ * @param WP_Post $post Current post.
+ */
+function cltd_theme_render_page_popup_meta_box($post) {
+    wp_nonce_field('cltd_page_popup_meta', 'cltd_page_popup_meta_nonce');
+
+    $is_enabled = (bool) get_post_meta($post->ID, 'cltd_open_in_popup', true);
+    ?>
+    <p>
+        <label>
+            <input type="checkbox" name="cltd_open_in_popup" value="1" <?php checked($is_enabled); ?> />
+            <?php esc_html_e('Open this page in a popup.', 'cltd-theme-oct-2025'); ?>
+        </label>
+    </p>
+    <p class="description">
+        <?php esc_html_e('When enabled, links to this page will open inside the site popup instead of navigating away.', 'cltd-theme-oct-2025'); ?>
+    </p>
+    <?php
+}
+
+/**
+ * Save page popup settings.
+ *
+ * @param int $post_id Post ID.
+ */
+function cltd_theme_save_page_popup_meta($post_id) {
+    if (!isset($_POST['cltd_page_popup_meta_nonce']) || !wp_verify_nonce($_POST['cltd_page_popup_meta_nonce'], 'cltd_page_popup_meta')) {
+        return;
+    }
+
+    if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+        return;
+    }
+
+    if (!current_user_can('edit_post', $post_id)) {
+        return;
+    }
+
+    $raw_value = isset($_POST['cltd_open_in_popup']) ? wp_unslash($_POST['cltd_open_in_popup']) : '';
+    $should_enable = '1' === $raw_value;
+
+    if ($should_enable) {
+        update_post_meta($post_id, 'cltd_open_in_popup', 1);
+    } else {
+        delete_post_meta($post_id, 'cltd_open_in_popup');
+    }
+}
+add_action('save_post_page', 'cltd_theme_save_page_popup_meta');
+
+/**
+ * Normalize a URL path for popup comparisons.
+ *
+ * @param string $url URL to normalize.
+ * @return string
+ */
+function cltd_theme_normalize_popup_path($url) {
+    if (empty($url)) {
+        return '';
+    }
+
+    $parts = wp_parse_url($url);
+    if (!is_array($parts)) {
+        return '';
+    }
+
+    $path = isset($parts['path']) ? (string) $parts['path'] : '';
+    if ($path === '' || $path === false) {
+        $path = '/';
+    }
+
+    $path = '/' . ltrim($path, '/');
+    $path = rtrim($path, '/');
+    if ($path === '') {
+        $path = '/';
+    }
+
+    return strtolower($path);
+}
+
+/**
+ * Retrieve published pages configured to open inside the popup.
+ *
+ * @return array
+ */
+function cltd_theme_get_popup_page_map() {
+    static $cache = null;
+
+    if (null !== $cache) {
+        return $cache;
+    }
+
+    $pages = get_posts([
+        'post_type'      => 'page',
+        'post_status'    => 'publish',
+        'numberposts'    => -1,
+        'meta_key'       => 'cltd_open_in_popup',
+        'meta_value'     => 1,
+        'suppress_filters' => false,
+    ]);
+
+    $map = [];
+    if (!empty($pages)) {
+        foreach ($pages as $page) {
+            $permalink = get_permalink($page);
+            $map[(int) $page->ID] = [
+                'id'        => (int) $page->ID,
+                'title'     => get_the_title($page),
+                'slug'      => $page->post_name,
+                'permalink' => $permalink,
+                'path'      => cltd_theme_normalize_popup_path($permalink),
+            ];
+        }
+    }
+
+    $cache = $map;
+
+    return $cache;
+}
+
+/**
+ * Determine whether a given page ID is configured for popup display.
+ *
+ * @param int $page_id Page ID.
+ * @return bool
+ */
+function cltd_theme_is_page_popup_enabled($page_id) {
+    $page_id = (int) $page_id;
+    if ($page_id <= 0) {
+        return false;
+    }
+
+    $map = cltd_theme_get_popup_page_map();
+    return isset($map[$page_id]);
+}
+
+/**
+ * Attempt to match a URL against the popup-enabled pages.
+ *
+ * @param string $url URL to test.
+ * @return array|null
+ */
+function cltd_theme_find_popup_page_by_url($url) {
+    if (empty($url)) {
+        return null;
+    }
+
+    $map = cltd_theme_get_popup_page_map();
+    if (empty($map)) {
+        return null;
+    }
+
+    $normalized = cltd_theme_normalize_popup_path($url);
+    if (!$normalized) {
+        return null;
+    }
+
+    foreach ($map as $page) {
+        if (!empty($page['path']) && $normalized === $page['path']) {
+            return $page;
+        }
+    }
+
+    $maybe_id = url_to_postid($url);
+    if ($maybe_id && isset($map[$maybe_id])) {
+        return $map[$maybe_id];
+    }
+
+    return null;
+}
+
+/**
+ * REST callback for loading page content inside the popup.
+ *
+ * @param WP_REST_Request $request Request object.
+ * @return array|WP_Error
+ */
+function cltd_theme_rest_get_page_popup(WP_REST_Request $request) {
+    $page_id = isset($request['id']) ? (int) $request['id'] : 0;
+
+    if ($page_id <= 0) {
+        return new WP_Error(
+            'invalid_page',
+            __('Invalid page.', 'cltd-theme-oct-2025'),
+            ['status' => 400]
+        );
+    }
+
+    if (!cltd_theme_is_page_popup_enabled($page_id)) {
+        return new WP_Error(
+            'not_found',
+            __('Requested page is not available as a popup.', 'cltd-theme-oct-2025'),
+            ['status' => 404]
+        );
+    }
+
+    $page = get_post($page_id);
+    if (!$page || 'page' !== $page->post_type || 'publish' !== $page->post_status) {
+        return new WP_Error(
+            'not_found',
+            __('Requested page is not available as a popup.', 'cltd-theme-oct-2025'),
+            ['status' => 404]
+        );
+    }
+
+    $content = apply_filters('the_content', $page->post_content);
+
+    return [
+        'title'   => get_the_title($page),
+        'content' => $content,
+    ];
+}
+
+/**
+ * Add popup attributes to navigation menu links targeting popup-enabled pages.
+ *
+ * @param array    $atts  Link attributes.
+ * @param WP_Post  $item  Menu item.
+ * @param stdClass $args  Menu args.
+ * @param int      $depth Depth.
+ * @return array
+ */
+function cltd_theme_add_popup_link_attributes($atts, $item, $args, $depth) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+    if (!empty($atts['data-popup-slug'])) {
+        return $atts;
+    }
+
+    if (!empty($atts['data-popup']) && 'true' === $atts['data-popup']) {
+        return $atts;
+    }
+
+    $map = cltd_theme_get_popup_page_map();
+    if (empty($map)) {
+        return $atts;
+    }
+
+    $page = null;
+
+    if (isset($item->object, $item->object_id) && 'page' === $item->object) {
+        $object_id = (int) $item->object_id;
+        if (isset($map[$object_id])) {
+            $page = $map[$object_id];
+        }
+    }
+
+    if (null === $page && !empty($item->url)) {
+        $page = cltd_theme_find_popup_page_by_url($item->url);
+    }
+
+    if (empty($page)) {
+        return $atts;
+    }
+
+    $atts['data-popup'] = 'true';
+    $atts['data-popup-page-id'] = (string) $page['id'];
+    $atts['data-popup-url'] = $page['permalink'];
+
+    if (empty($atts['data-popup-title']) && !empty($item->title)) {
+        $atts['data-popup-title'] = wp_strip_all_tags($item->title);
+    }
+
+    return $atts;
+}
+add_filter('nav_menu_link_attributes', 'cltd_theme_add_popup_link_attributes', 10, 4);
 
 /**
  * Display popup group filter dropdown on Popup Items list table.
@@ -1871,6 +2276,45 @@ function cltd_theme_get_content() {
 }
 
 /**
+ * Check if any popup icons require the Lottie library.
+ *
+ * @return bool
+ */
+function cltd_theme_site_has_lottie_icons() {
+    static $has_lottie_icons = null;
+
+    if (null !== $has_lottie_icons) {
+        return $has_lottie_icons;
+    }
+
+    $query = new WP_Query([
+        'post_type'      => 'cltd_popup',
+        'post_status'    => 'publish',
+        'fields'         => 'ids',
+        'posts_per_page' => 1,
+        'no_found_rows'  => true,
+        'meta_query'     => [
+            'relation' => 'OR',
+            [
+                'key'     => 'cltd_popup_icon_type',
+                'value'   => 'lottie',
+                'compare' => '=',
+            ],
+            [
+                'key'     => 'cltd_popup_icon',
+                'value'   => '.json',
+                'compare' => 'LIKE',
+            ],
+        ],
+    ]);
+
+    $has_lottie_icons = $query->have_posts();
+    wp_reset_postdata();
+
+    return $has_lottie_icons;
+}
+
+/**
  * Register scripts and expose runtime config to the frontend.
  */
 function cltd_theme_scripts() {
@@ -1896,6 +2340,10 @@ function cltd_theme_scripts() {
         }
     }
 
+    if (!$needs_lottie && cltd_theme_site_has_lottie_icons()) {
+        $needs_lottie = true;
+    }
+
     if ($needs_lottie) {
         wp_enqueue_script(
             'cltd-lottie',
@@ -1915,11 +2363,27 @@ function cltd_theme_scripts() {
         true
     );
 
+    $popup_page_map = cltd_theme_get_popup_page_map();
+    $popup_pages = array_values(
+        array_map(
+            static function($page) {
+                return [
+                    'id'        => isset($page['id']) ? (int) $page['id'] : 0,
+                    'title'     => isset($page['title']) ? wp_strip_all_tags($page['title']) : '',
+                    'permalink' => isset($page['permalink']) ? esc_url_raw($page['permalink']) : '',
+                ];
+            },
+            $popup_page_map
+        )
+    );
+
     wp_localize_script(
         'cltd-main',
         'CLTDTheme',
         [
             'restUrl' => esc_url_raw(rest_url('cltd/v1/popup/')),
+            'pagePopupRestUrl' => esc_url_raw(rest_url('cltd/v1/page-popup/')),
+            'popupPages' => $popup_pages,
             'heroBackground' => cltd_theme_format_hero_background_for_js($hero_background),
             'strings' => [
                 'loading' => __('Loading popup…', 'cltd-theme-oct-2025'),
@@ -2117,14 +2581,13 @@ add_action('rest_api_init', function() {
                             </h4>
                             <ul class="popup-posts__list">
                                 <?php foreach ($posts as $post) :
-                                    $permalink = get_permalink($post);
                                     $title = get_the_title($post);
                                     $content_html = apply_filters('the_content', get_the_content(null, false, $post));
                                     ?>
                                     <li class="popup-posts__item">
-                                        <a class="popup-posts__link" href="<?php echo esc_url($permalink); ?>">
+                                        <h3 class="popup-posts__link">
                                             <?php echo esc_html($title); ?>
-                                        </a>
+                                        </h3>
                                         <?php if (!empty($content_html)) : ?>
                                             <div class="popup-posts__excerpt"><?php echo wp_kses_post($content_html); ?></div>
                                         <?php endif; ?>
@@ -2146,6 +2609,16 @@ add_action('rest_api_init', function() {
                     'content' => $content,
                 ];
             },
+            'permission_callback' => '__return_true',
+        ]
+    );
+
+    register_rest_route(
+        'cltd/v1',
+        '/page-popup/(?P<id>\d+)',
+        [
+            'methods'             => 'GET',
+            'callback'            => 'cltd_theme_rest_get_page_popup',
             'permission_callback' => '__return_true',
         ]
     );
@@ -2326,7 +2799,7 @@ function cltd_theme_get_legacy_layout_markup() {
                 <span aria-hidden="true">&times;</span>
             </button>
             <div class="cltd-modal__body">
-                <h3 id="cltd-modal-title" class="cltd-modal__title"></h3>
+                <h2 id="cltd-modal-title" class="cltd-modal__title"></h2>
                 <div id="cltd-modal-content" class="cltd-modal__content">
                     <p class="cltd-modal__status"><?php esc_html_e('Select a module to view details.', 'cltd-theme-oct-2025'); ?></p>
                 </div>
@@ -2416,12 +2889,12 @@ function cltd_theme_products_by_category_shortcode($atts, $content = null, $tag 
                 <?php if ($demo_url || $website_url): ?>
                     <div class="cltd-product-links">
                         <?php if ($demo_url): ?>
-                            <a href="<?php echo esc_url($demo_url); ?>" class="button black" target="_blank">
+                            <a href="<?php echo esc_url($demo_url); ?>" class="button black <?php echo esc_attr(cltd_theme_wc_button_class_name()); ?>" target="_blank">
                                 <?php esc_html_e('View Live Demo', 'cltd-theme-oct-2025'); ?>
                             </a>
                         <?php endif; ?>
                         <?php if ($website_url): ?>
-                            <a href="<?php echo esc_url($website_url); ?>" class="button yellow" target="_blank">
+                            <a href="<?php echo esc_url($website_url); ?>" class="button yellow <?php echo esc_attr(cltd_theme_wc_button_class_name()); ?>" target="_blank">
                                 <?php esc_html_e('Visit Website', 'cltd-theme-oct-2025'); ?>
                             </a>
                         <?php endif; ?>
@@ -2444,7 +2917,7 @@ function cltd_theme_products_by_category_shortcode($atts, $content = null, $tag 
 
                 <form action="<?php echo esc_url(wc_get_cart_url()); ?>" method="post" class="cltd-add-to-cart-form">
                     <input type="hidden" name="add-to-cart" value="<?php echo esc_attr($product->get_id()); ?>">
-                    <button type="submit" class="button alt">
+                    <button type="submit" class="button alt <?php echo esc_attr(cltd_theme_wc_button_class_name()); ?>">
                         <?php esc_html_e('Add to Cart', 'cltd-theme-oct-2025'); ?>
                     </button>
                 </form>
@@ -2482,3 +2955,148 @@ function cltd_theme_bootstrap_woocommerce_cart() {
     }
 }
 add_action('woocommerce_init', 'cltd_theme_bootstrap_woocommerce_cart', 20);
+
+/**
+ * Retrieve the WordPress element button class so WooCommerce buttons inherit block styles.
+ *
+ * @return string
+ */
+function cltd_theme_wc_button_class_name() {
+    static $cached = null;
+
+    if (null !== $cached) {
+        return $cached;
+    }
+
+    $class = '';
+    if (function_exists('wp_theme_get_element_class_name')) {
+        $class = wp_theme_get_element_class_name('button');
+    }
+
+    if (!$class) {
+        $class = 'wp-element-button';
+    }
+
+    $cached = sanitize_html_class($class);
+
+    return $cached;
+}
+
+/**
+ * Append the shared button class to a class string.
+ *
+ * @param string $class_string Existing classes.
+ * @return string
+ */
+function cltd_theme_wc_append_button_class($class_string) {
+    $button_class = cltd_theme_wc_button_class_name();
+    $class_string = trim((string) $class_string);
+
+    if (!$button_class) {
+        return $class_string;
+    }
+
+    $classes = preg_split('/\s+/', $class_string);
+    $classes = array_filter(is_array($classes) ? $classes : [], 'strlen');
+
+    if (!in_array($button_class, $classes, true)) {
+        $classes[] = $button_class;
+    }
+
+    return trim(implode(' ', $classes));
+}
+
+/**
+ * Inject the shared button class into arbitrary WooCommerce button markup.
+ *
+ * @param string $html Markup string.
+ * @return string
+ */
+function cltd_theme_wc_inject_button_class_into_html($html) {
+    $button_class = cltd_theme_wc_button_class_name();
+    if (!$button_class || !is_string($html) || str_contains($html, $button_class)) {
+        return $html;
+    }
+
+    if (str_contains($html, 'class=')) {
+        return preg_replace('/class="([^"]*)"/', 'class="$1 ' . esc_attr($button_class) . '"', $html, 1);
+    }
+
+    return preg_replace('/<(a|button)/', '<$1 class="' . esc_attr($button_class) . '"', $html, 1);
+}
+
+add_filter(
+    'woocommerce_loop_add_to_cart_args',
+    function(array $args) {
+        $args['class'] = cltd_theme_wc_append_button_class(isset($args['class']) ? $args['class'] : '');
+        return $args;
+    },
+    10,
+    1
+);
+
+add_filter(
+    'woocommerce_product_single_add_to_cart_class',
+    function($class) {
+        return cltd_theme_wc_append_button_class($class);
+    }
+);
+
+add_filter('woocommerce_loop_add_to_cart_link', 'cltd_theme_wc_inject_button_class_into_html');
+add_filter('woocommerce_order_button_html', 'cltd_theme_wc_inject_button_class_into_html');
+add_filter('woocommerce_pay_order_button_html', 'cltd_theme_wc_inject_button_class_into_html');
+
+add_action(
+    'after_setup_theme',
+    function() {
+        if (!class_exists('WooCommerce')) {
+            return;
+        }
+
+        remove_action('woocommerce_proceed_to_checkout', 'woocommerce_button_proceed_to_checkout', 20);
+        add_action('woocommerce_proceed_to_checkout', 'cltd_theme_button_proceed_to_checkout', 20);
+    },
+    20
+);
+
+/**
+ * Render the Proceed to Checkout button with the global button class.
+ */
+function cltd_theme_button_proceed_to_checkout() {
+    $classes = cltd_theme_wc_append_button_class('checkout-button button alt wc-forward');
+    printf(
+        '<a href="%s" class="%s">%s</a>',
+        esc_url(wc_get_checkout_url()),
+        esc_attr($classes),
+        esc_html__('Proceed to checkout', 'woocommerce')
+    );
+}
+
+/**
+ * Enqueue a helper script that syncs WooCommerce buttons with wp-element-button styles.
+ */
+function cltd_theme_enqueue_wc_button_script() {
+    if (is_admin() || !class_exists('WooCommerce')) {
+        return;
+    }
+
+    $script_path = get_template_directory() . '/js/wc-button-sync.js';
+    if (!file_exists($script_path)) {
+        return;
+    }
+
+    wp_enqueue_script(
+        'cltd-wc-button-sync',
+        get_template_directory_uri() . '/js/wc-button-sync.js',
+        [],
+        filemtime($script_path),
+        true
+    );
+
+    wp_add_inline_script(
+        'cltd-wc-button-sync',
+        'window.CLTDWcButtons = Object.assign(window.CLTDWcButtons || {}, { elementClass: "' . esc_js(cltd_theme_wc_button_class_name()) . '" });',
+        'before'
+    );
+}
+add_action('wp_enqueue_scripts', 'cltd_theme_enqueue_wc_button_script');

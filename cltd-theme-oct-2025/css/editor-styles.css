@@ -90,10 +90,6 @@
 }
 
 .editor-styles-wrapper .circle {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: transparent;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -101,63 +97,48 @@
   position: relative;
   z-index: 1;
   overflow: visible;
-  border: #ffffff;
-}
-
-.editor-styles-wrapper .circle::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.92), rgba(240, 240, 240, 0.35));
-  z-index: 0;
-}
-
-.editor-styles-wrapper .circle__core {
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: linear-gradient(145deg, #ffffff, #f1f1f1);
-  box-shadow:
-    inset 6px 6px 10px rgba(224, 224, 224, 0.85),
-    inset -6px -6px 10px rgba(255, 255, 255, 0.95);
-  pointer-events: none;
-  z-index: 2;
-}
-
-.editor-styles-wrapper .circle__core::before {
-  content: '';
-  position: absolute;
-  inset: 6px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 28% 28%, rgba(255, 255, 255, 0.95), rgba(238, 238, 238, 0.35));
-  opacity: 0.95;
+  border: none;
+  padding: 0;
 }
 
 .editor-styles-wrapper .circle__icon {
-  width: 26px;
-  height: 26px;
+  width: 100px;
+  height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
   pointer-events: none;
   position: relative;
   z-index: 3;
-  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.12));
+  overflow: visible;
+  filter: drop-shadow(0 22px 26px rgba(15, 23, 42, 0.4));
+  transition: transform 0.2s ease, scale 0.2s ease;
 }
 
-.editor-styles-wrapper .circle__icon img {
+.editor-styles-wrapper .circle__icon img,
+.editor-styles-wrapper .circle__icon svg,
+.editor-styles-wrapper .circle__icon canvas {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  display: block;
 }
 
-.editor-styles-wrapper .circle--link .circle__core::after {
+.editor-styles-wrapper .circle__icon--lottie {
+  width: 100px;
+  height: 100px;
+}
+
+.editor-styles-wrapper .circle__icon--lottie svg,
+.editor-styles-wrapper .circle__icon--lottie canvas {
+  object-fit: contain;
+}
+
+.editor-styles-wrapper .circle--link .circle::after {
   content: '↗';
   position: absolute;
-  top: 50%;
-  right: 18px;
-  transform: translate(50%, -50%);
+  top: -14px;
+  right: -6px;
   font-size: 0.8rem;
   color: rgba(0, 0, 0, 0.66);
   letter-spacing: 0.05em;
@@ -168,14 +149,21 @@
   z-index: 3;
 }
 
-.editor-styles-wrapper .circle--link.circle--has-icon .circle__core::after {
+.editor-styles-wrapper .circle--link.circle--has-icon .circle::after {
   display: none;
+}
+
+.editor-styles-wrapper .circle:hover .circle__icon,
+.editor-styles-wrapper .circle:focus-visible .circle__icon {
+  transform: translateY(-6px);
+  scale: 1.12;
 }
 
 .editor-styles-wrapper .circle:focus-visible {
   outline: 2px solid rgba(0, 0, 0, 0.08);
   outline-offset: 2px;
 }
+
 
 .editor-styles-wrapper .cltd-products-grid {
   display: grid;
