@@ -2,7 +2,7 @@
   "apiVersion": 3,
   "name": "cltd/popup-group",
   "title": "Popup Group",
-  "category": "widgets",
+  "category": "cltd",
   "icon": "screenoptions",
   "description": "Display a popup group of circular links or popups.",
   "attributes": {

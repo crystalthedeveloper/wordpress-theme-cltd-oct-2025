@@ -40,6 +40,20 @@
       "contentSize": "760px",
       "wideSize": "1200px",
       "allowSwitching": true
+    },
+    "custom": {
+      "button": {
+        "border": {
+          "radius": "var(--wp--preset--radius--button)"
+        },
+        "color": {
+          "background": "var(--wp--preset--color--cltd-ink)",
+          "text": "var(--wp--preset--color--cltd-paper)"
+        },
+        "typography": {
+          "fontFamily": "var(--wp--preset--font-family--system-sans)"
+        }
+      }
     }
   },
   "styles": {

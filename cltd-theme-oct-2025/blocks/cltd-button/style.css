@@ -1,0 +1,142 @@
+/* CLTD Button – Mask 2 sweep using sprite as background */
+.wp-block-cltd-button {
+  text-align: inherit;
+  display: inline-flex;
+  width: auto;
+}
+
+.cltd-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  padding: 0.7em 1.75em;
+  min-width: 44px;
+  min-height: 44px;
+  font-family: var(--cltd-button-font-family, var(--wp--preset--font-family--system-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif));
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  border: var(--cltd-button-border-width, 1px) solid var(--cltd-button-border-color, transparent);
+  border-radius: var(--cltd-button-border-radius, var(--wp--custom--button--border--radius, 2.75rem)) !important;
+  color: var(--cltd-button-fill-text, var(--wp--custom--button--color--text, var(--wp--preset--color--cltd-paper, #ffffff))) !important;
+  background-color: var(--cltd-button-fill-bg, var(--wp--custom--button--color--background, var(--wp--preset--color--cltd-ink, #000000))) !important;
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: color 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+  margin-top: 20px;
+}
+
+.cltd-button:hover,
+.cltd-button:focus-visible {
+  color: #000000 !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.12);
+}
+
+.wp-block-cltd-button__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4em;
+  padding: 0.7em 1.75em;
+  min-width: 44px;
+  min-height: 44px;
+  font-family: var(--cltd-button-font-family, var(--wp--preset--font-family--system-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif));
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.1;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  border: none;
+  border-radius: var(--cltd-button-border-radius, var(--wp--custom--button--border--radius, 2.75rem));
+  color: #fff; /* start white text */
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.08);
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: color 0.25s ease, box-shadow 0.25s ease;
+  /* use sprite as "background" */
+  background: url("/wp-content/uploads/2025/11/urban-sprite.png") no-repeat 0 0 / 3000% 100%;
+  background-position: 0 0;
+}
+
+/* animate sprite on hover */
+.wp-block-cltd-button__link:hover,
+.wp-block-cltd-button__link:focus-visible {
+  animation: cltdMaskPlay 0.7s steps(29) forwards;
+  color: #000; /* turn text black */
+  box-shadow: 0 12px 22px rgba(0, 0, 0, 0.12);
+}
+
+/* return sprite back to black when hover ends */
+.wp-block-cltd-button__link:not(:hover):not(:focus-visible) {
+  animation: cltdMaskReverse 0.7s steps(29) forwards;
+  color: #fff; /* restore white text */
+}
+
+/* label */
+.wp-block-cltd-button__label {
+  position: relative;
+  z-index: 2;
+  transition: color 0.25s ease;
+}
+
+/* focus */
+.wp-block-cltd-button__link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+/* reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .wp-block-cltd-button__link {
+    transition: none;
+    animation: none !important;
+  }
+}
+
+/* keyframes for the sprite sweep */
+@keyframes cltdMaskPlay {
+  from { background-position: 0 0; }
+  to   { background-position: 100% 0; }
+}
+
+@keyframes cltdMaskReverse {
+  from { background-position: 100% 0; }
+  to   { background-position: 0 0; }
+}
+.cltd-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  pointer-events: none;
+  opacity: 0;
+  border-radius: inherit;
+  mask-image: url("/wp-content/uploads/2025/11/urban-sprite-scaled.png");
+  mask-size: 3000% 100%;
+  mask-position: 0 0;
+  mask-repeat: no-repeat;
+  mask-mode: luminance;
+  -webkit-mask-image: url("/wp-content/uploads/2025/11/urban-sprite-scaled.png");
+  -webkit-mask-size: 3000% 100%;
+  -webkit-mask-position: 0 0;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-mode: luminance;
+  animation-fill-mode: forwards;
+}
+
+.cltd-button:hover::after,
+.cltd-button:focus-visible::after {
+  opacity: 1;
+  animation: cltdButtonMaskPlay 0.7s steps(29) forwards;
+}
+
+.cltd-button:not(:hover):not(:focus-visible)::after {
+  opacity: 0;
+  animation: cltdButtonMaskReverse 0.7s steps(29) forwards;
+}

@@ -31,59 +31,220 @@ function cltd_theme_setup() {
 add_action('after_setup_theme', 'cltd_theme_setup');
 
 /**
- * Register custom button style for Gutenberg button block.
+ * Build shared CSS variable definitions for button styles.
+ *
+ * @return string
  */
-function cltd_register_brand_button_style() {
-    if (!function_exists('register_block_style')) {
+function cltd_theme_get_button_var_css() {
+    $font_fallback = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+
+    return <<<CSS
+:root, body {
+    --cltd-button-fill-bg: var(--wp--custom--button--color--background, var(--wp--preset--color--cltd-ink, #000000));
+    --cltd-button-fill-text: var(--wp--custom--button--color--text, var(--wp--preset--color--cltd-paper, #ffffff));
+    --cltd-button-font-family: var(--wp--custom--button--typography--font-family, var(--wp--preset--font-family--system-sans, {$font_fallback}));
+}
+CSS;
+}
+
+/**
+ * Ensure button radius variable follows Site Editor controls on frontend.
+ */
+function cltd_theme_sync_button_radius_var() {
+    $css = cltd_theme_get_button_var_css();
+
+    $targets = ['global-styles', 'global-styles-inline-css', 'wp-block-library-theme', 'wp-block-library'];
+
+    foreach ($targets as $handle) {
+        if (wp_style_is($handle, 'enqueued')) {
+            wp_add_inline_style($handle, $css);
+            return;
+        }
+    }
+
+    wp_register_style('cltd-inline-button-radius', false);
+    wp_enqueue_style('cltd-inline-button-radius');
+    wp_add_inline_style('cltd-inline-button-radius', $css);
+}
+add_action('wp_enqueue_scripts', 'cltd_theme_sync_button_radius_var', 80);
+
+/**
+ * Mirror button radius variable in the Site Editor.
+ */
+function cltd_theme_sync_button_radius_var_editor() {
+    $css = cltd_theme_get_button_var_css();
+
+    if (wp_style_is('wp-edit-blocks', 'enqueued')) {
+        wp_add_inline_style('wp-edit-blocks', $css);
         return;
     }
 
-    $style_path = get_template_directory() . '/css/cltd-brand.css';
-    $style_uri = get_template_directory_uri() . '/css/cltd-brand.css';
+    wp_register_style('cltd-inline-button-radius-editor', false);
+    wp_enqueue_style('cltd-inline-button-radius-editor');
+    wp_add_inline_style('cltd-inline-button-radius-editor', $css);
+}
+add_action('enqueue_block_editor_assets', 'cltd_theme_sync_button_radius_var_editor', 80);
 
+/**
+ * Register custom CLTD button block.
+ */
+function cltd_theme_register_button_block() {
+    $block_dir = get_template_directory() . '/blocks/cltd-button';
+
+    if (!file_exists($block_dir . '/block.json')) {
+        return;
+    }
+
+    register_block_type(
+        $block_dir,
+        [
+            'render_callback' => 'cltd_theme_render_button_block',
+        ]
+    );
+}
+add_action('init', 'cltd_theme_register_button_block', 15);
+
+/**
+ * Ensure CLTD button block styles load on the frontend/editor even if metadata registration is cached.
+ */
+function cltd_theme_enqueue_button_block_styles() {
+    $style_path = get_template_directory() . '/blocks/cltd-button/style.css';
     if (file_exists($style_path)) {
-        wp_register_style(
-            'cltd-brand-button',
-            $style_uri,
+        wp_enqueue_style(
+            'cltd-button-block',
+            get_template_directory_uri() . '/blocks/cltd-button/style.css',
             [],
             filemtime($style_path)
         );
     }
+}
+add_action('enqueue_block_assets', 'cltd_theme_enqueue_button_block_styles');
 
-    register_block_style(
-        'core/button',
-        [
-            'name'         => 'cltd-brand',
-            'label'        => __('CLTD Brand', 'cltd-theme-oct-2025'),
-            'style_handle' => 'cltd-brand-button',
-        ]
+/**
+ * Load editor-specific styles for the CLTD button block.
+ */
+function cltd_theme_enqueue_button_block_editor_styles() {
+    $editor_style_path = get_template_directory() . '/blocks/cltd-button/editor.css';
+    if (file_exists($editor_style_path)) {
+        wp_enqueue_style(
+            'cltd-button-block-editor',
+            get_template_directory_uri() . '/blocks/cltd-button/editor.css',
+            [],
+            filemtime($editor_style_path)
+        );
+    }
+}
+add_action('enqueue_block_editor_assets', 'cltd_theme_enqueue_button_block_editor_styles');
+
+add_filter(
+    'block_categories_all',
+    static function($categories) {
+        $cltd_category = [
+            'slug'  => 'cltd',
+            'title' => __('CLTD', 'cltd-theme-oct-2025'),
+            'icon'  => 'admin-site-alt3',
+        ];
+
+        foreach ($categories as $category) {
+            if (isset($category['slug']) && $category['slug'] === $cltd_category['slug']) {
+                return $categories;
+            }
+        }
+
+        array_unshift($categories, $cltd_category);
+        return $categories;
+    },
+    5
+);
+
+/**
+ * Render callback for CLTD button block.
+ *
+ * @param array $attributes Block attributes.
+ * @return string
+ */
+function cltd_theme_render_button_block($attributes) {
+    $text        = isset($attributes['text']) && $attributes['text'] !== '' ? $attributes['text'] : __('Button', 'cltd-theme-oct-2025');
+    $url         = isset($attributes['url']) ? esc_url($attributes['url']) : '';
+    $align       = isset($attributes['align']) ? sanitize_text_field($attributes['align']) : '';
+    $rel         = isset($attributes['rel']) ? sanitize_text_field($attributes['rel']) : '';
+    $link_target = isset($attributes['linkTarget']) ? sanitize_text_field($attributes['linkTarget']) : '';
+    $aria_label  = isset($attributes['ariaLabel']) ? sanitize_text_field($attributes['ariaLabel']) : '';
+    $border_radius = isset($attributes['borderRadius']) && $attributes['borderRadius'] !== null
+        ? max(0, (int) $attributes['borderRadius'])
+        : null;
+    $border_width = isset($attributes['borderWidth']) && $attributes['borderWidth'] !== null
+        ? max(0, (int) $attributes['borderWidth'])
+        : null;
+    $border_color = isset($attributes['borderColor']) ? sanitize_hex_color($attributes['borderColor']) : '';
+
+    $wrapper_args = [];
+    if ($align) {
+        $wrapper_args['class'] = 'has-text-align-' . sanitize_html_class($align);
+        $wrapper_args['style'] = 'text-align:' . esc_attr($align) . ';';
+    }
+    $wrapper_attributes = get_block_wrapper_attributes($wrapper_args);
+
+    $link_attributes = [
+        'class' => 'wp-block-cltd-button__link',
+    ];
+
+    if ($aria_label) {
+        $link_attributes['aria-label'] = $aria_label;
+    }
+
+    if ($url && $link_target) {
+        $link_attributes['target'] = $link_target;
+    }
+
+    if ($url && $rel) {
+        $link_attributes['rel'] = $rel;
+    }
+
+    $style_tokens = [];
+    if (null !== $border_radius) {
+        $style_tokens[] = '--wp--custom--button--border--radius:' . $border_radius . 'px';
+        $style_tokens[] = '--cltd-button-border-radius:' . $border_radius . 'px';
+    }
+    if (null !== $border_width) {
+        $style_tokens[] = '--cltd-button-border-width:' . $border_width . 'px';
+    }
+    if ($border_color) {
+        $style_tokens[] = '--cltd-button-border-color:' . $border_color;
+    }
+    if ($style_tokens) {
+        $link_attributes['style'] = implode(';', $style_tokens) . ';';
+    }
+
+    $content = sprintf('<span class="wp-block-cltd-button__label">%s</span>', wp_kses_post($text));
+
+    if ($url) {
+        $link_attributes['href'] = $url;
+        $attribute_pairs = [];
+        foreach ($link_attributes as $key => $value) {
+            $attribute_pairs[] = sprintf('%s="%s"', esc_attr($key), esc_attr($value));
+        }
+        return sprintf(
+            '<div %1$s><a %2$s>%3$s</a></div>',
+            $wrapper_attributes,
+            implode(' ', $attribute_pairs),
+            $content
+        );
+    }
+
+    $link_attributes['type'] = 'button';
+    $attribute_pairs = [];
+    foreach ($link_attributes as $key => $value) {
+        $attribute_pairs[] = sprintf('%s="%s"', esc_attr($key), esc_attr($value));
+    }
+
+    return sprintf(
+        '<div %1$s><button %2$s>%3$s</button></div>',
+        $wrapper_attributes,
+        implode(' ', $attribute_pairs),
+        $content
     );
 }
-add_action('init', 'cltd_register_brand_button_style');
-
-/**
- * Enqueue brand button styles on the frontend only.
- */
-function cltd_enqueue_brand_button_style() {
-    if (is_admin()) {
-        return;
-    }
-
-    if (wp_style_is('cltd-brand-button', 'registered')) {
-        wp_enqueue_style('cltd-brand-button');
-    }
-}
-add_action('wp_enqueue_scripts', 'cltd_enqueue_brand_button_style');
-
-/**
- * Load brand button styles inside the block editor.
- */
-function cltd_enqueue_brand_button_editor_style() {
-    if (wp_style_is('cltd-brand-button', 'registered')) {
-        wp_enqueue_style('cltd-brand-button');
-    }
-}
-add_action('enqueue_block_editor_assets', 'cltd_enqueue_brand_button_editor_style');
 
 /**
  * Optionally register the popup custom post type that powers modal content.
@@ -1207,6 +1368,35 @@ function cltd_theme_sanitize_hero_background_slide($slide) {
  * @param array $background
  * @return string
  */
+
+function cltd_theme_output_global_hero_background() {
+    static $printed = false;
+    if ($printed) {
+        return;
+    }
+
+    $hero_background = cltd_theme_get_hero_background();
+    $hero_has_slider = cltd_theme_has_hero_background($hero_background);
+    $hero_background_markup = $hero_has_slider ? cltd_theme_get_hero_background_markup($hero_background) : '';
+
+    if (!$hero_has_slider && empty($hero_background_markup)) {
+        $content_map = cltd_theme_get_content();
+        $hero = isset($content_map['hero']) ? $content_map['hero'] : [];
+        if (!empty($hero['background_image'])) {
+            $hero_background_markup = sprintf(
+                '<div class="hero-background hero-background--image"><div class="hero-background__image" style="background-image: url(%s);"></div></div>',
+                esc_url($hero['background_image'])
+            );
+        }
+    }
+
+    if (!empty($hero_background_markup)) {
+        $printed = true;
+        echo $hero_background_markup; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+    }
+}
+add_action('wp_body_open', 'cltd_theme_output_global_hero_background', 5);
+
 function cltd_theme_get_hero_background_markup(array $background) {
     if (empty($background['slides']) || !is_array($background['slides'])) {
         return '';
@@ -2326,7 +2516,11 @@ function cltd_theme_scripts() {
     wp_enqueue_style(
         'cltd-style',
         get_stylesheet_uri(),
-        [],
+        [
+            'wp-block-library',
+            'wp-block-library-theme',
+            'global-styles',
+        ],
         file_exists($style_path) ? filemtime($style_path) : null
     );
 
@@ -2731,21 +2925,8 @@ function cltd_theme_get_legacy_layout_markup() {
         ? $content_map['sections']
         : [];
 
-    $hero_background = cltd_theme_get_hero_background();
-    $hero_has_slider = cltd_theme_has_hero_background($hero_background);
-    $hero_background_markup = $hero_has_slider ? cltd_theme_get_hero_background_markup($hero_background) : '';
-
-    if (!$hero_has_slider && empty($hero_background_markup) && !empty($hero['background_image'])) {
-        $hero_background_markup = sprintf(
-            '<div class="hero-background hero-background--image"><div class="hero-background__image" style="background-image: url(%s);"></div></div>',
-            esc_url($hero['background_image'])
-        );
-    }
 
     ob_start();
-    if (!empty($hero_background_markup)) {
-        echo $hero_background_markup; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-    }
     ?>
     <div class="page-wrapper">
         <main class="content">
@@ -2821,6 +3002,35 @@ function cltd_theme_legacy_layout_shortcode() {
 add_shortcode('cltd_legacy_layout', 'cltd_theme_legacy_layout_shortcode');
 
 // === [ CLTD: WooCommerce Product Shortcodes for Popups — Full Detail Version ] === //
+
+/**
+ * Format multi-sentence text into paragraphs or list items for shortcode output.
+ *
+ * @param string $text Raw text from meta.
+ * @return string HTML string.
+ */
+function cltd_theme_format_product_text_block($text) {
+    $text = trim((string) $text);
+    if ($text === '') {
+        return '';
+    }
+
+    if (strpos($text, "
+") !== false) {
+        return wpautop($text);
+    }
+
+    $parts = array_filter(array_map('trim', explode(' - ', $text)));
+    if (count($parts) > 1) {
+        $items = array_map(function($part) {
+            return '<li>' . esc_html($part) . '</li>';
+        }, $parts);
+        return '<ul class="cltd-text-list">' . implode('', $items) . '</ul>';
+    }
+
+    return wpautop($text);
+}
+
 function cltd_theme_products_by_category_shortcode($atts, $content = null, $tag = '') {
     if (!class_exists('WooCommerce')) {
         return '<p>WooCommerce not active.</p>';
@@ -2889,12 +3099,12 @@ function cltd_theme_products_by_category_shortcode($atts, $content = null, $tag 
                 <?php if ($demo_url || $website_url): ?>
                     <div class="cltd-product-links">
                         <?php if ($demo_url): ?>
-                            <a href="<?php echo esc_url($demo_url); ?>" class="button black <?php echo esc_attr(cltd_theme_wc_button_class_name()); ?>" target="_blank">
+                            <a href="<?php echo esc_url($demo_url); ?>" class="cltd-product-link cltd-product-link--demo" target="_blank" rel="noopener">
                                 <?php esc_html_e('View Live Demo', 'cltd-theme-oct-2025'); ?>
                             </a>
                         <?php endif; ?>
                         <?php if ($website_url): ?>
-                            <a href="<?php echo esc_url($website_url); ?>" class="button yellow <?php echo esc_attr(cltd_theme_wc_button_class_name()); ?>" target="_blank">
+                            <a href="<?php echo esc_url($website_url); ?>" class="cltd-product-link cltd-product-link--site" target="_blank" rel="noopener">
                                 <?php esc_html_e('Visit Website', 'cltd-theme-oct-2025'); ?>
                             </a>
                         <?php endif; ?>
@@ -2904,20 +3114,20 @@ function cltd_theme_products_by_category_shortcode($atts, $content = null, $tag 
                 <?php if ($features): ?>
                     <details class="cltd-features">
                         <summary><?php esc_html_e('Features', 'cltd-theme-oct-2025'); ?></summary>
-                        <div class="inner"><?php echo wpautop($features); ?></div>
+                        <div class="inner"><?php echo cltd_theme_format_product_text_block($features); ?></div>
                     </details>
                 <?php endif; ?>
 
                 <?php if ($license): ?>
                     <details class="cltd-license">
                         <summary><?php esc_html_e('License', 'cltd-theme-oct-2025'); ?></summary>
-                        <div class="inner"><?php echo wpautop($license); ?></div>
+                        <div class="inner"><?php echo cltd_theme_format_product_text_block($license); ?></div>
                     </details>
                 <?php endif; ?>
 
                 <form action="<?php echo esc_url(wc_get_cart_url()); ?>" method="post" class="cltd-add-to-cart-form">
                     <input type="hidden" name="add-to-cart" value="<?php echo esc_attr($product->get_id()); ?>">
-                    <button type="submit" class="button alt <?php echo esc_attr(cltd_theme_wc_button_class_name()); ?>">
+                    <button type="submit" class="cltd-button">
                         <?php esc_html_e('Add to Cart', 'cltd-theme-oct-2025'); ?>
                     </button>
                 </form>
@@ -2992,15 +3202,15 @@ function cltd_theme_wc_append_button_class($class_string) {
     $button_class = cltd_theme_wc_button_class_name();
     $class_string = trim((string) $class_string);
 
-    if (!$button_class) {
-        return $class_string;
-    }
-
     $classes = preg_split('/\s+/', $class_string);
     $classes = array_filter(is_array($classes) ? $classes : [], 'strlen');
 
-    if (!in_array($button_class, $classes, true)) {
-        $classes[] = $button_class;
+    $required = array_filter(array_unique([$button_class, 'wp-block-cltd-button__link']));
+
+    foreach ($required as $required_class) {
+        if ($required_class && !in_array($required_class, $classes, true)) {
+            $classes[] = $required_class;
+        }
     }
 
     return trim(implode(' ', $classes));
@@ -3013,16 +3223,43 @@ function cltd_theme_wc_append_button_class($class_string) {
  * @return string
  */
 function cltd_theme_wc_inject_button_class_into_html($html) {
-    $button_class = cltd_theme_wc_button_class_name();
-    if (!$button_class || !is_string($html) || str_contains($html, $button_class)) {
+    if (!is_string($html) || '' === $html) {
+        return $html;
+    }
+
+    $classes_to_add = array_filter(array_unique([
+        cltd_theme_wc_button_class_name(),
+        'wp-block-cltd-button__link',
+    ]));
+
+    if (empty($classes_to_add)) {
         return $html;
     }
 
     if (str_contains($html, 'class=')) {
-        return preg_replace('/class="([^"]*)"/', 'class="$1 ' . esc_attr($button_class) . '"', $html, 1);
+        return preg_replace_callback(
+            '/class="([^"]*)"/',
+            function($matches) use ($classes_to_add) {
+                $existing = preg_split('/\s+/', $matches[1]);
+                $existing = array_filter(is_array($existing) ? $existing : [], 'strlen');
+                foreach ($classes_to_add as $class_name) {
+                    if ($class_name && !in_array($class_name, $existing, true)) {
+                        $existing[] = $class_name;
+                    }
+                }
+                return 'class="' . esc_attr(implode(' ', $existing)) . '"';
+            },
+            $html,
+            1
+        );
     }
 
-    return preg_replace('/<(a|button)/', '<$1 class="' . esc_attr($button_class) . '"', $html, 1);
+    return preg_replace(
+        '/<(a|button)/',
+        '<$1 class="' . esc_attr(implode(' ', $classes_to_add)) . '"',
+        $html,
+        1
+    );
 }
 
 add_filter(

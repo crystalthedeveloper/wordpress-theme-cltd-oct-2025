@@ -1,0 +1,9 @@
+@import url("./style.css");
+
+.wp-block-cltd-button {
+  min-height: 44px;
+}
+
+.wp-block-cltd-button__link {
+  cursor: pointer;
+}

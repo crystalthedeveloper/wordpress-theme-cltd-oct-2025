@@ -3,6 +3,8 @@
   color: #000000;
   line-height: 1.55;
   background-color: #ffffff;
+  --cltd-button-fill-bg: var(--wp--preset--color--cltd-ink, #000000);
+  --cltd-button-fill-text: var(--wp--preset--color--cltd-paper, #ffffff);
 }
 
 .editor-visual-editor,
