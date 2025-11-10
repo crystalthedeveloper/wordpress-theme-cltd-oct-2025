@@ -84,6 +84,13 @@ registerBlockType('cltd/button', {
                     PanelBody,
                     { title: __('Link settings', 'cltd-theme-oct-2025'), initialOpen: true },
                     el(TextControl, {
+                        label: __('Button text', 'cltd-theme-oct-2025'),
+                        value: text,
+                        onChange(nextValue) {
+                            setAttributes({ text: nextValue || '' });
+                        },
+                    }),
+                    el(TextControl, {
                         label: __('Link URL', 'cltd-theme-oct-2025'),
                         type: 'url',
                         placeholder: 'https://example.com',
