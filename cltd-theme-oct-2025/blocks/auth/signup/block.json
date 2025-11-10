@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "version": "1.0.0",
+  "name": "cltd/auth-signup",
+  "title": "CLTD Sign Up Form",
+  "category": "cltd",
+  "icon": "admin-users",
+  "description": "Collects user information and creates an account.",
+  "supports": {
+    "html": false
+  },
+  "style": "cltd-auth-blocks",
+  "editorScript": "cltd-auth-blocks-editor",
+  "render": "file:./render-signup.php",
+  "textdomain": "cltd-theme-oct-2025"
+}

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "version": "1.0.0",
+  "name": "cltd/auth-forgot",
+  "title": "CLTD Forgot Password Form",
+  "category": "cltd",
+  "icon": "email",
+  "description": "Requests a password reset email.",
+  "supports": {
+    "html": false
+  },
+  "style": "cltd-auth-blocks",
+  "editorScript": "cltd-auth-blocks-editor",
+  "render": "file:./render-forgot.php",
+  "textdomain": "cltd-theme-oct-2025"
+}

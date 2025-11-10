@@ -2040,6 +2040,41 @@ function cltd_theme_get_popup_page_map() {
         }
     }
 
+    $default_slugs = apply_filters('cltd_theme_default_popup_pages', ['privacy-policy', 'terms-of-service', 'returns-policy']);
+    if (!empty($default_slugs)) {
+        foreach ($default_slugs as $slug) {
+            $slug = sanitize_title($slug);
+            if (!$slug) {
+                continue;
+            }
+
+            $page_obj = get_page_by_path($slug, OBJECT, ['page']);
+            if (!$page_obj || 'publish' !== $page_obj->post_status) {
+                continue;
+            }
+
+            $permalink = get_permalink($page_obj);
+            $normalized = cltd_theme_normalize_popup_path($permalink);
+            if (!$normalized) {
+                continue;
+            }
+
+            foreach ($map as $page) {
+                if (!empty($page['path']) && $page['path'] === $normalized) {
+                    continue 2;
+                }
+            }
+
+            $map[(int) $page_obj->ID] = [
+                'id'        => (int) $page_obj->ID,
+                'title'     => get_the_title($page_obj),
+                'slug'      => $page_obj->post_name,
+                'permalink' => $permalink,
+                'path'      => $normalized,
+            ];
+        }
+    }
+
     $cache = $map;
 
     return $cache;
@@ -2094,6 +2129,52 @@ function cltd_theme_find_popup_page_by_url($url) {
     }
 
     return null;
+}
+
+/**
+ * Inject popup data attributes into an anchor HTML string.
+ *
+ * @param string $html Markup that contains an anchor.
+ * @param array  $page Popup page data.
+ * @return string
+ */
+function cltd_theme_inject_popup_attrs_into_anchor($html, array $page) {
+    if (!is_string($html) || '' === $html) {
+        return $html;
+    }
+
+    if (stripos($html, 'data-popup') !== false) {
+        return $html;
+    }
+
+    if (!preg_match('/<a\b[^>]*>/i', $html)) {
+        return $html;
+    }
+
+    $attributes = [
+        'data-popup'         => 'true',
+        'data-popup-page-id' => isset($page['id']) ? (string) (int) $page['id'] : '',
+        'data-popup-url'     => isset($page['permalink']) ? esc_url($page['permalink']) : '',
+        'data-popup-title'   => isset($page['title']) ? wp_strip_all_tags($page['title']) : '',
+    ];
+
+    $pairs = [];
+    foreach ($attributes as $name => $value) {
+        if ($value === '' || $value === null) {
+            continue;
+        }
+        $pairs[] = sprintf('%s="%s"', esc_attr($name), esc_attr($value));
+    }
+
+    if (empty($pairs)) {
+        return $html;
+    }
+
+    $attr_string = ' ' . implode(' ', $pairs);
+
+    $updated = preg_replace('/<a\b([^>]*)>/i', '<a$1' . $attr_string . '>', $html, 1);
+
+    return is_string($updated) && $updated !== '' ? $updated : $html;
 }
 
 /**
@@ -2189,6 +2270,77 @@ function cltd_theme_add_popup_link_attributes($atts, $item, $args, $depth) { // 
     return $atts;
 }
 add_filter('nav_menu_link_attributes', 'cltd_theme_add_popup_link_attributes', 10, 4);
+
+/**
+ * Ensure cached nav menu markup still receives popup attributes.
+ *
+ * @param string $nav_menu Rendered menu HTML.
+ * @param stdClass $args Menu args.
+ * @return string
+ */
+function cltd_theme_filter_nav_menu_output($nav_menu, $args) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter
+    if (!is_string($nav_menu) || false === stripos($nav_menu, '<a ')) {
+        return $nav_menu;
+    }
+
+    $map = cltd_theme_get_popup_page_map();
+    if (empty($map)) {
+        return $nav_menu;
+    }
+
+    return preg_replace_callback(
+        '/<a\b[^>]*>/i',
+        function($matches) {
+            $anchor = $matches[0];
+            if (stripos($anchor, 'data-popup') !== false) {
+                return $anchor;
+            }
+
+            if (!preg_match('/href="([^"]+)"/i', $anchor, $href_match)) {
+                return $anchor;
+            }
+
+            $page = cltd_theme_find_popup_page_by_url($href_match[1]);
+            if (!$page) {
+                return $anchor;
+            }
+
+            return cltd_theme_inject_popup_attrs_into_anchor($anchor, $page);
+        },
+        $nav_menu
+    );
+}
+add_filter('wp_nav_menu', 'cltd_theme_filter_nav_menu_output', 10, 2);
+
+/**
+ * Add popup attributes to Navigation block links when targeting popup-enabled pages.
+ *
+ * @param string $block_content Rendered block HTML.
+ * @param array  $block         Block data.
+ * @return string
+ */
+function cltd_theme_render_navigation_link_block($block_content, $block) {
+    if ('' === $block_content || !is_string($block_content)) {
+        return $block_content;
+    }
+
+    if (empty($block['attrs']) || !is_array($block['attrs'])) {
+        return $block_content;
+    }
+
+    $url = isset($block['attrs']['url']) ? $block['attrs']['url'] : '';
+    if (!$url) {
+        return $block_content;
+    }
+
+    $page = cltd_theme_find_popup_page_by_url($url);
+    if (empty($page)) {
+        return $block_content;
+    }
+
+    return cltd_theme_inject_popup_attrs_into_anchor($block_content, $page);
+}
+add_filter('render_block_core/navigation-link', 'cltd_theme_render_navigation_link_block', 10, 2);
 
 /**
  * Display popup group filter dropdown on Popup Items list table.
@@ -2426,9 +2578,9 @@ function cltd_theme_get_content_defaults() {
         'footer'          => [
             'text'  => __('2025 © Crystal The Developer Inc. All rights reserved', 'cltd-theme-oct-2025'),
             'links' => [
-                ['label' => __('Terms of Service', 'cltd-theme-oct-2025'), 'url' => '/privacy-policy'],
-                ['label' => __('Privacy & Cookies', 'cltd-theme-oct-2025'), 'url' => '#'],
-                ['label' => __('Return Policy', 'cltd-theme-oct-2025'), 'url' => '#'],
+                ['label' => __('Terms of Service', 'cltd-theme-oct-2025'), 'url' => '/terms-of-service'],
+                ['label' => __('Privacy Policy', 'cltd-theme-oct-2025'), 'url' => '/privacy-policy'],
+                ['label' => __('Returns Policy', 'cltd-theme-oct-2025'), 'url' => '/returns-policy'],
             ],
         ],
     ];
@@ -2463,6 +2615,36 @@ function cltd_theme_get_content() {
      * @param array $content
      */
     return apply_filters('cltd_theme_content', $content);
+}
+
+add_filter('cltd_theme_content', 'cltd_theme_normalize_footer_links', 25);
+
+function cltd_theme_normalize_footer_links($content) {
+    if (empty($content['footer']['links']) || !is_array($content['footer']['links'])) {
+        return $content;
+    }
+
+    $targets = [
+        'terms of service' => '/terms-of-service',
+        'terms & conditions' => '/terms-of-service',
+        'privacy policy' => '/privacy-policy',
+        'privacy & cookies' => '/privacy-policy',
+        'returns policy' => '/returns-policy',
+        'return policy' => '/returns-policy',
+    ];
+
+    foreach ($content['footer']['links'] as &$link) {
+        if (!is_array($link)) {
+            continue;
+        }
+        $label = isset($link['label']) ? strtolower(trim(wp_strip_all_tags($link['label']))) : '';
+        if (isset($targets[$label])) {
+            $link['url'] = $targets[$label];
+        }
+    }
+    unset($link);
+
+    return $content;
 }
 
 /**
@@ -2973,6 +3155,25 @@ function cltd_theme_get_legacy_layout_markup() {
         </main>
     </div>
 
+    <?php cltd_theme_render_popup_modal(); ?>
+    <?php
+
+    return (string) ob_get_clean();
+}
+
+function cltd_theme_legacy_layout_shortcode() {
+    return cltd_theme_get_legacy_layout_markup();
+}
+add_shortcode('cltd_legacy_layout', 'cltd_theme_legacy_layout_shortcode');
+
+/**
+ * Return popup modal markup.
+ *
+ * @return string
+ */
+function cltd_theme_get_popup_modal_markup() {
+    ob_start();
+    ?>
     <div class="cltd-modal" data-popup-modal hidden>
         <div class="cltd-modal__backdrop" data-popup-close></div>
         <div class="cltd-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="cltd-modal-title" aria-describedby="cltd-modal-content" tabindex="-1">
@@ -2992,14 +3193,27 @@ function cltd_theme_get_legacy_layout_markup() {
         </div>
     </div>
     <?php
-
     return (string) ob_get_clean();
 }
 
-function cltd_theme_legacy_layout_shortcode() {
-    return cltd_theme_get_legacy_layout_markup();
+/**
+ * Output popup modal markup once per request.
+ *
+ * @return void
+ */
+function cltd_theme_render_popup_modal() {
+    static $printed = false;
+    if ($printed) {
+        return;
+    }
+
+    $markup = cltd_theme_get_popup_modal_markup();
+    if ($markup) {
+        $printed = true;
+        echo $markup; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+    }
 }
-add_shortcode('cltd_legacy_layout', 'cltd_theme_legacy_layout_shortcode');
+add_action('wp_footer', 'cltd_theme_render_popup_modal', 1);
 
 // === [ CLTD: WooCommerce Product Shortcodes for Popups — Full Detail Version ] === //
 
@@ -3279,6 +3493,283 @@ add_filter(
     }
 );
 
+/**
+ * Register shared auth block styles.
+ */
+function cltd_theme_register_auth_block_assets() {
+    $theme_dir = get_template_directory();
+    $theme_uri = get_template_directory_uri();
+
+    $style_path = $theme_dir . '/blocks/auth/style.css';
+    if (file_exists($style_path)) {
+        wp_register_style(
+            'cltd-auth-blocks',
+            $theme_uri . '/blocks/auth/style.css',
+            [],
+            filemtime($style_path)
+        );
+    }
+
+    $script_path = $theme_dir . '/blocks/auth/index.js';
+    if (file_exists($script_path)) {
+        $asset_path = $theme_dir . '/blocks/auth/index.asset.php';
+        $asset = [
+            'dependencies' => ['wp-blocks', 'wp-element', 'wp-i18n', 'wp-server-side-render'],
+            'version' => filemtime($script_path),
+        ];
+        if (file_exists($asset_path)) {
+            $maybe_asset = include $asset_path;
+            if (is_array($maybe_asset) && isset($maybe_asset['dependencies'], $maybe_asset['version'])) {
+                $asset = $maybe_asset;
+            }
+        }
+
+        wp_register_script(
+            'cltd-auth-blocks-editor',
+            $theme_uri . '/blocks/auth/index.js',
+            $asset['dependencies'],
+            $asset['version'],
+            true
+        );
+    }
+}
+add_action('init', 'cltd_theme_register_auth_block_assets', 9);
+
+/**
+ * Register authentication form blocks.
+ */
+function cltd_theme_register_auth_blocks() {
+    $base = get_template_directory() . '/blocks/auth';
+    if (!is_dir($base)) {
+        return;
+    }
+
+    $blocks = [
+        $base . '/login',
+        $base . '/signup',
+        $base . '/forgot',
+        $base . '/account',
+    ];
+
+    foreach ($blocks as $path) {
+        if (file_exists($path . '/block.json')) {
+            register_block_type($path);
+        }
+    }
+}
+add_action('init', 'cltd_theme_register_auth_blocks', 15);
+
+if (!isset($GLOBALS['cltd_auth_feedback']) || !is_array($GLOBALS['cltd_auth_feedback'])) {
+    $GLOBALS['cltd_auth_feedback'] = [];
+}
+
+/**
+ * Store auth form feedback for the current request.
+ */
+/**
+ * Store auth form feedback.
+ *
+ * @param string $action
+ * @param string $type error|success
+ * @param string $message
+ */
+function cltd_theme_add_auth_feedback($action, $type, $message) {
+    global $cltd_auth_feedback;
+
+    if (!isset($cltd_auth_feedback) || !is_array($cltd_auth_feedback)) {
+        $cltd_auth_feedback = [];
+    }
+
+    if (!isset($cltd_auth_feedback[$action])) {
+        $cltd_auth_feedback[$action] = ['errors' => [], 'success' => [], 'old' => []];
+    }
+
+    if ('error' === $type) {
+        $cltd_auth_feedback[$action]['errors'][] = $message;
+    } elseif ('success' === $type) {
+        $cltd_auth_feedback[$action]['success'][] = $message;
+    }
+}
+
+/**
+ * Store old form input so the form can be re-populated.
+ *
+ * @param string $action
+ * @param array  $data
+ */
+function cltd_theme_set_auth_old_input($action, array $data) {
+    global $cltd_auth_feedback;
+
+    if (!isset($cltd_auth_feedback) || !is_array($cltd_auth_feedback)) {
+        $cltd_auth_feedback = [];
+    }
+
+    if (!isset($cltd_auth_feedback[$action])) {
+        $cltd_auth_feedback[$action] = ['errors' => [], 'success' => [], 'old' => []];
+    }
+
+    $cltd_auth_feedback[$action]['old'] = $data;
+}
+
+/**
+ * Retrieve feedback for a given auth action.
+ *
+ * @param string $action
+ * @return array
+ */
+function cltd_theme_get_auth_feedback($action) {
+    global $cltd_auth_feedback;
+
+    if (!isset($cltd_auth_feedback[$action])) {
+        $cltd_auth_feedback[$action] = ['errors' => [], 'success' => [], 'old' => []];
+    }
+
+    return $cltd_auth_feedback[$action];
+}
+
+/**
+ * Handle authentication form submissions.
+ */
+function cltd_theme_handle_auth_form_submission() {
+    if ('POST' !== $_SERVER['REQUEST_METHOD']) {
+        return;
+    }
+
+    $action = isset($_POST['cltd_auth_action']) ? sanitize_key(wp_unslash($_POST['cltd_auth_action'])) : '';
+    if (!$action) {
+        return;
+    }
+
+    switch ($action) {
+        case 'signup':
+            cltd_theme_handle_signup_form();
+            break;
+        case 'forgot':
+            cltd_theme_handle_forgot_form();
+            break;
+    }
+}
+add_action('init', 'cltd_theme_handle_auth_form_submission', 20);
+
+/**
+ * Process signup form submission.
+ */
+function cltd_theme_handle_signup_form() {
+    $nonce = isset($_POST['cltd_auth_signup_nonce']) ? wp_unslash($_POST['cltd_auth_signup_nonce']) : '';
+    if (!wp_verify_nonce($nonce, 'cltd_auth_signup_action')) {
+        cltd_theme_add_auth_feedback('signup', 'error', __('Security check failed. Please try again.', 'cltd-theme-oct-2025'));
+        return;
+    }
+
+    $email      = isset($_POST['cltd_signup_email']) ? sanitize_email(wp_unslash($_POST['cltd_signup_email'])) : '';
+    $first_name = isset($_POST['cltd_signup_first_name']) ? sanitize_text_field(wp_unslash($_POST['cltd_signup_first_name'])) : '';
+    $last_name  = isset($_POST['cltd_signup_last_name']) ? sanitize_text_field(wp_unslash($_POST['cltd_signup_last_name'])) : '';
+    $password   = isset($_POST['cltd_signup_password']) ? (string) wp_unslash($_POST['cltd_signup_password']) : '';
+    $terms      = !empty($_POST['cltd_signup_terms']);
+    $marketing  = !empty($_POST['cltd_signup_marketing']);
+
+    cltd_theme_set_auth_old_input('signup', [
+        'email'     => $email,
+        'first_name'=> $first_name,
+        'last_name' => $last_name,
+        'terms'     => $terms ? '1' : '',
+        'marketing' => $marketing ? '1' : '',
+    ]);
+
+    if (!$email || !is_email($email)) {
+        cltd_theme_add_auth_feedback('signup', 'error', __('Please provide a valid email address.', 'cltd-theme-oct-2025'));
+    }
+
+    if (!$first_name) {
+        cltd_theme_add_auth_feedback('signup', 'error', __('First name is required.', 'cltd-theme-oct-2025'));
+    }
+
+    if (!$last_name) {
+        cltd_theme_add_auth_feedback('signup', 'error', __('Last name is required.', 'cltd-theme-oct-2025'));
+    }
+
+    if (strlen($password) < 6) {
+        cltd_theme_add_auth_feedback('signup', 'error', __('Password must be at least 6 characters.', 'cltd-theme-oct-2025'));
+    }
+
+    if (!$terms) {
+        cltd_theme_add_auth_feedback('signup', 'error', __('You must agree to the Privacy Policy and Terms of Service.', 'cltd-theme-oct-2025'));
+    }
+
+    $feedback = cltd_theme_get_auth_feedback('signup');
+    if (!empty($feedback['errors'])) {
+        return;
+    }
+
+    $parts = explode('@', $email, 2);
+    $user_login = sanitize_user($parts[0]);
+    if (!$user_login) {
+        $user_login = 'user' . wp_generate_password(6, false, false);
+    }
+
+    $original_login = $user_login;
+    $increment = 1;
+    while (username_exists($user_login)) {
+        $user_login = $original_login . $increment;
+        $increment++;
+    }
+
+    $user_id = wp_create_user($user_login, $password, $email);
+    if (is_wp_error($user_id)) {
+        cltd_theme_add_auth_feedback('signup', 'error', $user_id->get_error_message());
+        return;
+    }
+
+    update_user_meta($user_id, 'first_name', $first_name);
+    update_user_meta($user_id, 'last_name', $last_name);
+    update_user_meta($user_id, 'cltd_marketing_consent', $marketing ? 'yes' : 'no');
+
+    $signon = wp_signon([
+        'user_login'    => $user_login,
+        'user_password' => $password,
+        'remember'      => true,
+    ]);
+
+    if (is_wp_error($signon)) {
+        cltd_theme_add_auth_feedback('signup', 'error', $signon->get_error_message());
+        return;
+    }
+
+    wp_safe_redirect(home_url('/'));
+    exit;
+}
+
+/**
+ * Process forgot password form submission.
+ */
+function cltd_theme_handle_forgot_form() {
+    $nonce = isset($_POST['cltd_auth_forgot_nonce']) ? wp_unslash($_POST['cltd_auth_forgot_nonce']) : '';
+    if (!wp_verify_nonce($nonce, 'cltd_auth_forgot_action')) {
+        cltd_theme_add_auth_feedback('forgot', 'error', __('Security check failed. Please try again.', 'cltd-theme-oct-2025'));
+        return;
+    }
+
+    $email = isset($_POST['cltd_forgot_email']) ? sanitize_email(wp_unslash($_POST['cltd_forgot_email'])) : '';
+    cltd_theme_set_auth_old_input('forgot', ['email' => $email]);
+
+    if (!$email || !is_email($email)) {
+        cltd_theme_add_auth_feedback('forgot', 'error', __('Enter a valid email address.', 'cltd-theme-oct-2025'));
+        return;
+    }
+
+    $result = retrieve_password($email);
+    if (true === $result) {
+        wp_safe_redirect(home_url('/'));
+        exit;
+    }
+
+    if (is_wp_error($result)) {
+        cltd_theme_add_auth_feedback('forgot', 'error', $result->get_error_message());
+    } else {
+        cltd_theme_add_auth_feedback('forgot', 'error', __('We could not process your request. Please try again later.', 'cltd-theme-oct-2025'));
+    }
+}
+
 add_filter('woocommerce_loop_add_to_cart_link', 'cltd_theme_wc_inject_button_class_into_html');
 add_filter('woocommerce_order_button_html', 'cltd_theme_wc_inject_button_class_into_html');
 add_filter('woocommerce_pay_order_button_html', 'cltd_theme_wc_inject_button_class_into_html');
@@ -3300,9 +3791,9 @@ add_action(
  * Render the Proceed to Checkout button with the global button class.
  */
 function cltd_theme_button_proceed_to_checkout() {
-    $classes = cltd_theme_wc_append_button_class('checkout-button button alt wc-forward');
+    $classes = cltd_theme_wc_append_button_class('checkout-button button alt wc-forward cltd-button');
     printf(
-        '<a href="%s" class="%s">%s</a>',
+        '<a href="%s" class="%s"><span class="wp-block-cltd-button__label">%s</span></a>',
         esc_url(wc_get_checkout_url()),
         esc_attr($classes),
         esc_html__('Proceed to checkout', 'woocommerce')

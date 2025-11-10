@@ -2,7 +2,16 @@
   function applyButtonClass(scope = document) {
     const config = window.CLTDWcButtons || {};
     const elementClass = typeof config.elementClass === 'string' && config.elementClass ? config.elementClass : 'wp-element-button';
-    const selector = '.woocommerce a.button:not(.' + elementClass + '), .woocommerce button.button:not(.' + elementClass + '), .woocommerce input.button:not(.' + elementClass + '), .woocommerce #respond input#submit:not(.' + elementClass + ')';
+    const requiredClasses = [elementClass, 'wp-block-cltd-button__link', 'cltd-button'];
+    const selector = [
+      '.woocommerce a.button',
+      '.woocommerce button.button',
+      '.woocommerce input.button',
+      '.woocommerce #respond input#submit',
+      '.wc-block-components-button__button',
+      '.wc-block-cart .wp-element-button',
+      '.wc-block-checkout .wp-element-button'
+    ].join(', ');
     const buttons = scope.querySelectorAll(selector);
 
     if (!buttons.length) {
@@ -10,7 +19,11 @@
     }
 
     buttons.forEach((button) => {
-      button.classList.add(elementClass);
+      requiredClasses.forEach((className) => {
+        if (className && !button.classList.contains(className)) {
+          button.classList.add(className);
+        }
+      });
     });
   }
 

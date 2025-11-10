@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 2,
+  "version": "1.0.0",
+  "name": "cltd/auth-account",
+  "title": "CLTD My Account",
+  "category": "cltd",
+  "icon": "id",
+  "description": "Shows the logged-in user profile and Clown Hunt stats.",
+  "supports": {
+    "html": false
+  },
+  "style": "cltd-auth-blocks",
+  "editorScript": "cltd-auth-blocks-editor",
+  "render": "file:./render-account.php",
+  "textdomain": "cltd-theme-oct-2025"
+}

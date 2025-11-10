@@ -5,6 +5,7 @@
   const heroBackground = config.heroBackground || {};
   const popupPages = Array.isArray(config.popupPages) ? config.popupPages : [];
   const popupPageLookup = new Map();
+  const popupSlugLookup = new Map();
   const processedLightboxImages = new WeakSet();
   let lightboxElements = null;
   const strings = Object.assign(
@@ -19,8 +20,15 @@
   if (popupPages.length) {
     popupPages.forEach((page) => {
       const normalized = normalizePath(page.permalink || page.url || '');
-      if (normalized) {
-        popupPageLookup.set(normalized, page);
+      if (!normalized) {
+        return;
+      }
+
+      popupPageLookup.set(normalized, page);
+
+      const slug = extractSlug(normalized);
+      if (slug && !popupSlugLookup.has(slug)) {
+        popupSlugLookup.set(slug, page);
       }
     });
   }
@@ -52,6 +60,33 @@
     return path.toLowerCase();
   }
 
+  function extractSlug(path) {
+    if (!path) {
+      return '';
+    }
+
+    const parts = path.split('/').filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : '';
+  }
+
+  function findPopupPage(path) {
+    if (!path) {
+      return null;
+    }
+
+    const direct = popupPageLookup.get(path);
+    if (direct) {
+      return direct;
+    }
+
+    const slug = extractSlug(path);
+    if (slug) {
+      return popupSlugLookup.get(slug) || null;
+    }
+
+    return null;
+  }
+
   function applyPopupAttributesToLink(link, page) {
     if (!link || !page) {
       return;
@@ -74,7 +109,7 @@
   }
 
   function hydratePopupLinks(root = document) {
-    if (!popupPageLookup.size || !root) {
+    if ((!popupPageLookup.size && !popupSlugLookup.size) || !root) {
       return;
     }
 
@@ -85,7 +120,7 @@
         return;
       }
 
-      const match = popupPageLookup.get(normalizePath(href));
+      const match = findPopupPage(normalizePath(href));
       if (match) {
         applyPopupAttributesToLink(link, match);
       }

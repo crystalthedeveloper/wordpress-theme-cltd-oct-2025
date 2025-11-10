@@ -1,0 +1,17 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "version": "1.0.0",
+  "name": "cltd/auth-login",
+  "title": "CLTD Login Form",
+  "category": "cltd",
+  "icon": "lock",
+  "description": "Displays the CLTD login form with helpful links.",
+  "supports": {
+    "html": false
+  },
+  "style": "cltd-auth-blocks",
+  "editorScript": "cltd-auth-blocks-editor",
+  "render": "file:./render-login.php",
+  "textdomain": "cltd-theme-oct-2025"
+}

@@ -1,0 +1,248 @@
+.cltd-auth {
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 2.5rem 2.25rem;
+  border-radius: 24px;
+  background: #fdfdfd;
+  box-shadow: 20px 20px 40px rgba(8, 12, 24, 0.08), -12px -12px 32px rgba(255, 255, 255, 0.9);
+  color: #0c111d;
+  font-family: var(--wp--preset--font-family--system-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+}
+
+.cltd-auth + .cltd-auth {
+  margin-top: 2rem;
+}
+
+.cltd-auth__title {
+  font-size: 1.75rem;
+  margin: 0 0 0.35rem;
+}
+
+.cltd-auth__description {
+  margin: 0 0 1.5rem;
+  color: rgba(12, 17, 29, 0.7);
+}
+
+.cltd-auth__form {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.cltd-auth__field,
+.cltd-auth__form p {
+  margin: 0;
+}
+
+.cltd-auth__field label,
+.cltd-auth__form label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(8, 11, 19, 0.5);
+}
+
+.cltd-auth input[type="text"],
+.cltd-auth input[type="email"],
+.cltd-auth input[type="password"],
+.cltd-auth input[type="url"],
+.cltd-auth input[type="search"],
+.cltd-auth input[type="tel"],
+.cltd-auth input[type="number"],
+.cltd-auth #loginform .input {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 0.95rem 1.15rem;
+  background: linear-gradient(145deg, #ffffff, #e8ecf4);
+  box-shadow: inset 2px 2px 6px rgba(15, 23, 42, 0.16), inset -2px -2px 6px rgba(255, 255, 255, 0.85);
+  font-size: 1rem;
+  color: #0c111d;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
+}
+
+.cltd-auth input[type="text"]:hover,
+.cltd-auth input[type="email"]:hover,
+.cltd-auth input[type="password"]:hover,
+.cltd-auth input[type="url"]:hover,
+.cltd-auth input[type="search"]:hover,
+.cltd-auth input[type="tel"]:hover,
+.cltd-auth input[type="number"]:hover,
+.cltd-auth #loginform .input:hover {
+  background: linear-gradient(145deg, #ffffff, #eef2f7);
+}
+
+.cltd-auth input[type="text"]:focus,
+.cltd-auth input[type="email"]:focus,
+.cltd-auth input[type="password"]:focus,
+.cltd-auth input[type="url"]:focus,
+.cltd-auth input[type="search"]:focus,
+.cltd-auth input[type="tel"]:focus,
+.cltd-auth input[type="number"]:focus,
+.cltd-auth #loginform .input:focus {
+  outline: none;
+  box-shadow: inset 1px 1px 3px rgba(15, 23, 42, 0.2), inset -1px -1px 3px rgba(255, 255, 255, 0.9), 0 8px 24px rgba(15, 23, 42, 0.15);
+  transform: translateY(-1px);
+}
+
+.cltd-auth #loginform p {
+  margin: 0;
+}
+
+.cltd-auth #loginform label {
+  margin-bottom: 0.4rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: rgba(8, 11, 19, 0.5);
+  display: block;
+}
+
+.cltd-auth #loginform {
+  display: grid;
+  gap: 1rem;
+}
+
+.cltd-auth #loginform .forgetmenot {
+  display: none;
+}
+
+.cltd-auth__checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.cltd-auth__checkbox input[type="checkbox"] {
+  margin-top: 0.2rem;
+}
+
+.cltd-auth__footer {
+  margin-top: 1.25rem;
+  font-size: 0.95rem;
+  text-align: center;
+  color: rgba(12, 17, 29, 0.8);
+}
+
+.cltd-auth__footer a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cltd-auth__links {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.cltd-auth__links a {
+  color: inherit;
+  font-weight: 600;
+}
+
+.cltd-auth__button {
+  width: 100%;
+  justify-content: center;
+}
+
+.cltd-auth__notice {
+  margin: 0 0 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.cltd-auth__notice--error {
+  background: rgba(255, 68, 68, 0.1);
+  color: #7f1d1d;
+}
+
+.cltd-auth__notice--success {
+  background: rgba(34, 197, 94, 0.15);
+  color: #065f46;
+}
+
+.cltd-auth__compact-message {
+  text-align: center;
+  font-size: 1rem;
+}
+
+.cltd-auth__compact-message a {
+  font-weight: 600;
+}
+
+.cltd-auth__form button,
+.cltd-auth__form input[type="submit"],
+.cltd-auth #loginform .button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.95rem 1.5rem;
+  font-weight: 600;
+  background: linear-gradient(145deg, #090b13, #151c2f);
+  color: #fff;
+  box-shadow: 12px 12px 24px rgba(9, 11, 19, 0.4), -8px -8px 20px rgba(255, 255, 255, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cltd-auth__form button:hover,
+.cltd-auth__form button:focus-visible,
+.cltd-auth__form input[type="submit"]:hover,
+.cltd-auth__form input[type="submit"]:focus-visible,
+.cltd-auth #loginform .button:hover,
+.cltd-auth #loginform .button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 18px 20px 38px rgba(9, 11, 19, 0.45), -10px -10px 24px rgba(255, 255, 255, 0.12);
+}
+
+.cltd-auth__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 1.25rem;
+}
+
+.cltd-auth__stat {
+  padding: 1rem;
+  border-radius: 18px;
+  background: linear-gradient(145deg, #ffffff, #eceff5);
+  box-shadow: 8px 8px 20px rgba(7, 10, 17, 0.08), -6px -6px 18px rgba(255, 255, 255, 0.9);
+  text-align: center;
+}
+
+.cltd-auth__stat-label {
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 0.35rem;
+  color: rgba(8, 11, 19, 0.45);
+}
+
+.cltd-auth__stat-value {
+  font-size: 1.35rem;
+  display: block;
+  color: #090b13;
+}
+
+.cltd-auth__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.cltd-auth__actions .cltd-button {
+  flex: 1 1 200px;
+  justify-content: center;
+}
+
+.cltd-auth__button--alt {
+  background: linear-gradient(145deg, #f4511e, #d84315);
+}
