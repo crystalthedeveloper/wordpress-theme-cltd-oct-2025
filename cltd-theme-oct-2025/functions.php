@@ -31,6 +31,32 @@ function cltd_theme_setup() {
 add_action('after_setup_theme', 'cltd_theme_setup');
 
 /**
+ * Ensure CLTD block category is always available in the editor.
+ *
+ * @param array                   $categories Existing categories.
+ * @param WP_Block_Editor_Context $editor_context Editor context.
+ * @return array
+ */
+function cltd_theme_register_block_category($categories, $editor_context) {
+    $slug = 'cltd';
+    foreach ($categories as $category) {
+        if (!empty($category['slug']) && $category['slug'] === $slug) {
+            return $categories;
+        }
+    }
+
+    $category = [
+        'slug'  => $slug,
+        'title' => __('CLTD', 'cltd-theme-oct-2025'),
+        'icon'  => 'layout',
+    ];
+
+    array_unshift($categories, $category);
+    return $categories;
+}
+add_filter('block_categories_all', 'cltd_theme_register_block_category', 9, 2);
+
+/**
  * Build shared CSS variable definitions for button styles.
  *
  * @return string
@@ -103,6 +129,64 @@ function cltd_theme_register_button_block() {
     );
 }
 add_action('init', 'cltd_theme_register_button_block', 15);
+
+/**
+ * Register CLTD columns block (replaces core columns).
+ */
+function cltd_theme_register_columns_block() {
+    if (!function_exists('register_block_type')) {
+        return;
+    }
+
+    $script_handle     = 'cltd-theme-columns-editor';
+    $style_handle      = 'cltd-theme-columns-style';
+    $theme_dir         = get_template_directory();
+    $theme_uri         = get_template_directory_uri();
+
+    $script_rel      = '/blocks/cltd-columns/cltd-columns.js';
+    $style_rel       = '/blocks/cltd-columns/cltd-columns.css';
+
+    $script_path      = $theme_dir . $script_rel;
+    $style_path       = $theme_dir . $style_rel;
+
+    wp_register_script(
+        $script_handle,
+        $theme_uri . $script_rel,
+        ['wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-i18n', 'wp-data'],
+        file_exists($script_path) ? filemtime($script_path) : false,
+        true
+    );
+
+    wp_register_style(
+        $style_handle,
+        $theme_uri . $style_rel,
+        [],
+        file_exists($style_path) ? filemtime($style_path) : false
+    );
+
+    $block_args = [
+        'editor_script' => $script_handle,
+        'editor_style'  => $style_handle,
+        'style'         => $style_handle,
+    ];
+
+    register_block_type('cltd/columns', $block_args);
+}
+add_action('init', 'cltd_theme_register_columns_block', 16);
+
+/**
+ * Ensure CLTD columns assets load in editor.
+ */
+function cltd_theme_enqueue_columns_editor_assets() {
+    if (wp_script_is('cltd-theme-columns-editor', 'registered') && !wp_script_is('cltd-theme-columns-editor', 'enqueued')) {
+        wp_enqueue_script('cltd-theme-columns-editor');
+    }
+
+    if (wp_style_is('cltd-theme-columns-style', 'registered') && !wp_style_is('cltd-theme-columns-style', 'enqueued')) {
+        wp_enqueue_style('cltd-theme-columns-style');
+    }
+}
+add_action('enqueue_block_editor_assets', 'cltd_theme_enqueue_columns_editor_assets', 20);
 
 /**
  * Ensure CLTD button block styles load on the frontend/editor even if metadata registration is cached.
@@ -3245,6 +3329,62 @@ function cltd_theme_format_product_text_block($text) {
     return wpautop($text);
 }
 
+/**
+ * Sort WP_Post objects by a numeric meta key (high to low).
+ *
+ * Posts without the meta key are placed last while preserving a deterministic
+ * fallback order using menu order and title.
+ *
+ * @param WP_Post[] $posts
+ * @param string    $meta_key
+ * @return WP_Post[]
+ */
+function cltd_theme_sort_posts_by_numeric_meta_desc(array $posts, $meta_key) {
+    if (!$meta_key || empty($posts)) {
+        return $posts;
+    }
+
+    $enriched = array_map(function($post) use ($meta_key) {
+        $raw = get_post_meta($post->ID, $meta_key, true);
+        $value = ($raw === '' || $raw === null) ? null : (float) $raw;
+
+        return [
+            'post'  => $post,
+            'value' => $value,
+        ];
+    }, $posts);
+
+    usort($enriched, function($a, $b) {
+        $a_value = $a['value'];
+        $b_value = $b['value'];
+
+        if ($a_value === $b_value) {
+            $a_menu = (int) $a['post']->menu_order;
+            $b_menu = (int) $b['post']->menu_order;
+
+            if ($a_menu === $b_menu) {
+                return strcasecmp($a['post']->post_title, $b['post']->post_title);
+            }
+
+            return $a_menu <=> $b_menu;
+        }
+
+        if ($a_value === null) {
+            return 1;
+        }
+
+        if ($b_value === null) {
+            return -1;
+        }
+
+        return $b_value <=> $a_value;
+    });
+
+    return array_map(function($item) {
+        return $item['post'];
+    }, $enriched);
+}
+
 function cltd_theme_products_by_category_shortcode($atts, $content = null, $tag = '') {
     if (!class_exists('WooCommerce')) {
         return '<p>WooCommerce not active.</p>';
@@ -3263,10 +3403,16 @@ function cltd_theme_products_by_category_shortcode($atts, $content = null, $tag 
         return '<p>Invalid shortcode or category missing.</p>';
     }
 
+    $order_meta_key = apply_filters('cltd_theme_products_order_meta_key', 'order', $tag, $category);
+
     $args = [
         'post_type'      => 'product',
         'posts_per_page' => -1,
         'post_status'    => 'publish',
+        'orderby'        => [
+            'menu_order' => 'ASC',
+            'title'      => 'ASC',
+        ],
         'tax_query'      => [
             [
                 'taxonomy' => 'product_cat',
@@ -3278,14 +3424,19 @@ function cltd_theme_products_by_category_shortcode($atts, $content = null, $tag 
 
     $query = new WP_Query($args);
 
-    if (!$query->have_posts()) {
+    if (empty($query->posts)) {
         return '<p>No products found in ' . esc_html(ucfirst($category)) . '.</p>';
     }
 
+    $ordered_posts = $order_meta_key
+        ? cltd_theme_sort_posts_by_numeric_meta_desc($query->posts, $order_meta_key)
+        : $query->posts;
+
     ob_start();
     echo '<div class="cltd-products-grid">';
-    while ($query->have_posts()) {
-        $query->the_post();
+    global $post;
+    foreach ($ordered_posts as $post) {
+        setup_postdata($post);
         $product = wc_get_product(get_the_ID());
         if (!$product) continue;
 

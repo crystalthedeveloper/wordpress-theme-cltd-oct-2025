@@ -433,6 +433,7 @@ body.has-hero-background .content {
     transition: transform 0.2s ease, scale 0.2s ease;
     overflow: visible;
     filter: drop-shadow(0 22px 26px rgba(15, 23, 42, 0.4));
+    background-color: transparent;
 }
 
 .circle__icon img,
@@ -587,6 +588,7 @@ body.has-hero-background .content {
 
 .cltd-modal.is-open {
     pointer-events: auto;
+    word-break: break-word;
 }
 
 .cltd-modal.is-open .cltd-modal__dialog {
@@ -661,8 +663,8 @@ body.has-hero-background .content {
 
 .cltd-modal__close {
     position: absolute;
-    top: 1.5rem;
-    right: 1.5rem;
+    top: 0.4rem;
+    right: 1rem;
     background: linear-gradient(145deg, #ffffff, #f2f2f2);
     border: none;
     width: 44px;
@@ -984,13 +986,13 @@ body.cltd-modal-open {
 =========================== */
 .cltd-products-grid {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 2rem;
 }
 
 .cltd-product-card-full {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 2rem;
     background: #fff;
     padding: 2rem;
@@ -1103,6 +1105,12 @@ details summary {
         text-align: center;
     }
 
+    .cltd-products-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
     .circle__icon {
         width: 72px;
         height: 72px;
@@ -1117,6 +1125,10 @@ details summary {
 
 /* ----- Phones ----- */
 @media (max-width: 768px) {
+    .hero-background {
+        height: 100rem;
+    }
+
     .page-wrapper {
         flex-direction: column;
     }
@@ -1163,7 +1175,7 @@ details summary {
     }
 
     .cltd-modal__title {
-        font-size: 1.5rem;
+        font-size: 1rem;
     }
 
     .cltd-modal__scroll-indicator {
@@ -1174,7 +1186,7 @@ details summary {
         font-size: 1.2rem;
         letter-spacing: 0.06em;
     }
-    
+
     .wp-block-cover__video-background {
         height: 138px !important;
         position: relative !important;
@@ -1199,17 +1211,14 @@ details summary {
     }
 
     .circle__icon {
-        width: 64px;
-        height: 64px;
+        width: 86px;
+        height: auto;
+        filter: none;
     }
 
     .circle__icon--lottie {
         width: 72px;
         height: 72px;
-    }
-
-    .circle__label {
-        font-size: 0.68rem;
     }
 }
 
@@ -1274,6 +1283,10 @@ details summary {
     .footer-links,
     .footer-socials {
         justify-content: center;
+    }
+
+    .cltd-modal__dialog {
+        padding: 2rem 1rem;
     }
 }
 

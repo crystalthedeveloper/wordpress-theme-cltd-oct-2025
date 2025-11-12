@@ -1,0 +1,59 @@
+.cltd-columns {
+    display: grid;
+    gap: var(--cltd-columns-gap, 1.5rem);
+    width: 100%;
+    grid-template-columns: var(--cltd-columns-template, repeat(var(--cltd-columns-count, 2), minmax(0, 1fr)));
+}
+
+.cltd-columns > .cltd-column {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.cltd-columns.is-vertical {
+    grid-template-columns: var(--cltd-columns-template, 1fr);
+}
+
+.cltd-columns.is-horizontal > .cltd-column {
+    grid-column: span var(--cltd-column-span, 1);
+}
+
+.cltd-columns.is-stacked {
+    grid-template-columns: 1fr !important;
+}
+
+.cltd-columns.is-stacked > .cltd-column {
+    grid-column: 1 / -1 !important;
+}
+
+.cltd-columns > .cltd-column > .block-editor-inner-blocks,
+.cltd-columns > .cltd-column > .wp-block-inner-blocks {
+    width: 100%;
+}
+
+.cltd-columns > .cltd-column > .block-editor-inner-blocks > .block-editor-block-list__layout,
+.cltd-columns > .cltd-column > .wp-block-inner-blocks > .block-editor-block-list__layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.cltd-columns > .cltd-column > .block-editor-inner-blocks > .block-editor-block-list__layout > .block-list-appender,
+.cltd-columns > .cltd-column > .wp-block-inner-blocks > .block-editor-block-list__layout > .block-list-appender {
+    margin-top: 1rem;
+}
+
+.cltd-column video,
+.cltd-column .wp-block-video video {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cltd-columns.is-stacked .cltd-column video,
+.cltd-columns.is-stacked .cltd-column .wp-block-video video {
+    height: 300px;
+}

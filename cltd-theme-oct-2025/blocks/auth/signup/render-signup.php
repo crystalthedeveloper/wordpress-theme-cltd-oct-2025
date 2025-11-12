@@ -78,8 +78,18 @@ $old_value    = function ($key) use ($old) {
 
         <label class="cltd-auth__checkbox">
             <input type="checkbox" name="cltd_signup_terms" value="1" <?php checked($old_value('terms'), '1'); ?> required>
-            <span><?php esc_html_e('By creating an account, I agree to this website’s Privacy Policy and Terms of Service.', 'cltd-theme-oct-2025'); ?></span>
+            <span>
+                <?php esc_html_e('By creating an account, I agree to this website’s', 'cltd-theme-oct-2025'); ?>
+                <a href="<?php echo esc_url(home_url('/privacy-policy/')); ?>" target="_blank" rel="noopener noreferrer">
+                    <?php esc_html_e('Privacy Policy', 'cltd-theme-oct-2025'); ?>
+                </a>
+                <?php esc_html_e('and', 'cltd-theme-oct-2025'); ?>
+                <a href="<?php echo esc_url(home_url('/terms-of-service/')); ?>" target="_blank" rel="noopener noreferrer">
+                    <?php esc_html_e('Terms of Service', 'cltd-theme-oct-2025'); ?>
+                </a>.
+            </span>
         </label>
+
 
         <br>
 

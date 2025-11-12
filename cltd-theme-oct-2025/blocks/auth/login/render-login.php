@@ -71,7 +71,7 @@ $signup_url        = home_url('/sign-up');
         <?php echo $login_form; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped 
         ?>
     </div>
-   
+
     <br />
 
     <div class="cltd-auth__links">
@@ -80,9 +80,11 @@ $signup_url        = home_url('/sign-up');
         </a>
 
         <br />
-
-        <a href="<?php echo esc_url($signup_url); ?>">
-            <?php esc_html_e('Don’t have an account? Sign Up', 'cltd-theme-oct-2025'); ?>
-        </a>
+        <p>
+            <?php esc_html_e('Don’t have an account?', 'cltd-theme-oct-2025'); ?>
+            <a href="<?php echo esc_url($signup_url); ?>">
+                <?php esc_html_e('Sign Up', 'cltd-theme-oct-2025'); ?>
+            </a>
+        </p>
     </div>
 </div>

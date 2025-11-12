@@ -12,13 +12,18 @@ if (!is_user_logged_in()) : ?>
             <?php esc_html_e('Please log in to view your account.', 'cltd-theme-oct-2025'); ?>
         </h3>
         <div class="cltd-auth__links">
-            <a href="<?php echo esc_url(home_url('/log-in/')); ?>">
-                <?php esc_html_e('Already have an account? Log In', 'cltd-theme-oct-2025'); ?>
-            </a>
-            <br>
-            <a href="<?php echo esc_url(home_url('/sign-up/')); ?>">
-                <?php esc_html_e('Don’t have an account? Sign Up', 'cltd-theme-oct-2025'); ?>
-            </a>
+            <p>
+                <?php esc_html_e('Already have an account?', 'cltd-theme-oct-2025'); ?>
+                <a href="<?php echo esc_url(home_url('/log-in')); ?>">
+                    <?php esc_html_e('Log In', 'cltd-theme-oct-2025'); ?>
+                </a>
+            </p>
+            <p>
+                <?php esc_html_e('Don’t have an account?', 'cltd-theme-oct-2025'); ?>
+                <a href="<?php echo esc_url(home_url('/sign-up')); ?>">
+                    <?php esc_html_e('Sign Up', 'cltd-theme-oct-2025'); ?>
+                </a>
+            </p>
         </div>
     </div>
 <?php
