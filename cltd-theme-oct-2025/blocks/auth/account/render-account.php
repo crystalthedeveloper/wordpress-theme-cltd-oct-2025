@@ -41,14 +41,14 @@ $high_score = $high_score !== '' ? $high_score : __('Not recorded yet', 'cltd-th
 $kills      = $kills !== '' ? $kills : __('Not recorded yet', 'cltd-theme-oct-2025');
 $rank       = $rank !== '' ? $rank : __('Unranked', 'cltd-theme-oct-2025');
 
-$reset_url = home_url('/forgot-your-password/');
+$reset_url = home_url('/forgot-your-password');
 $logout_url = wp_logout_url(home_url('/'));
 ?>
 
 <div class="<?php echo esc_attr(implode(' ', $classes)); ?>">
     <h2 class="cltd-auth__title"><?php esc_html_e('My Account', 'cltd-theme-oct-2025'); ?></h2>
     <p class="cltd-auth__description">
-        <?php esc_html_e('Welcome back! Here is a snapshot of your profile and Clown Hunt stats.', 'cltd-theme-oct-2025'); ?>
+        <?php esc_html_e('Welcome! Here is a snapshot of your profile and Clown Hunt stats.', 'cltd-theme-oct-2025'); ?>
     </p>
 
     <div class="cltd-auth__form">
@@ -76,13 +76,18 @@ $logout_url = wp_logout_url(home_url('/'));
             <strong class="cltd-auth__stat-value"><?php echo esc_html($rank); ?></strong>
         </div>
     </div>
+    
+    <br>
 
     <div class="cltd-auth__links">
         <a href="<?php echo esc_url($reset_url); ?>">
             <?php esc_html_e('Need to reset your password?', 'cltd-theme-oct-2025'); ?>
         </a>
+
+        <br>
+        
         <a href="<?php echo esc_url($logout_url); ?>">
-            <?php esc_html_e('Log out of your account', 'cltd-theme-oct-2025'); ?>
+            <?php esc_html_e('Log out', 'cltd-theme-oct-2025'); ?>
         </a>
     </div>
 </div>

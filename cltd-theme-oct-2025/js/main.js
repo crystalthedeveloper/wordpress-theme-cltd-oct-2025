@@ -1,12 +1,17 @@
 (() => {
   const config = window.CLTDTheme || {};
+  const homeUrl = typeof config.homeUrl === 'string' && config.homeUrl ? config.homeUrl : '/';
+  const orderCancelledPath = normalizePath('/order-cancelled/');
+  const restNonce = typeof config.restNonce === 'string' ? config.restNonce : '';
   const restBase = typeof config.restUrl === 'string' ? config.restUrl : '';
   const pageRestBase = typeof config.pagePopupRestUrl === 'string' ? config.pagePopupRestUrl : '';
+  const ajaxUrl = typeof config.ajaxUrl === 'string' && config.ajaxUrl ? config.ajaxUrl : '';
   const heroBackground = config.heroBackground || {};
   const popupPages = Array.isArray(config.popupPages) ? config.popupPages : [];
   const popupPageLookup = new Map();
   const popupSlugLookup = new Map();
   const processedLightboxImages = new WeakSet();
+  const preparedCartButtons = new WeakSet();
   let lightboxElements = null;
   const strings = Object.assign(
     {
@@ -33,6 +38,13 @@
     });
   }
 
+  function normalizeHostname(host) {
+    if (!host) {
+      return '';
+    }
+    return host.toLowerCase().replace(/^www\./u, '');
+  }
+
   function normalizePath(url) {
     if (!url) {
       return '';
@@ -41,8 +53,9 @@
     const link = document.createElement('a');
     link.href = url;
 
-    const currentHost = window.location.host ? window.location.host.toLowerCase() : '';
-    const targetHost = link.host ? link.host.toLowerCase() : currentHost;
+    const currentHost = normalizeHostname(window.location.hostname || window.location.host);
+    const fallbackHost = window.location.hostname || window.location.host || '';
+    const targetHost = normalizeHostname(link.hostname || fallbackHost);
 
     if (targetHost && currentHost && targetHost !== currentHost) {
       return '';
@@ -106,6 +119,51 @@
     if (!link.dataset.popupTitle && page.title) {
       link.dataset.popupTitle = page.title;
     }
+
+    if (!link.dataset.gtmPopup) {
+      const explicitSlug = typeof page.slug === 'string' && page.slug ? page.slug : '';
+      const derivedSlug = explicitSlug || extractSlug(normalizePath(page.permalink || page.url || ''));
+      if (derivedSlug) {
+        link.dataset.gtmPopup = derivedSlug;
+      } else if (page.title) {
+        link.dataset.gtmPopup = extractSlug(page.title.toLowerCase().replace(/\s+/g, '-'));
+      }
+    }
+  }
+
+  function getCurrentPopupMatch() {
+    const current = normalizePath(window.location.href || window.location.pathname || '');
+    if (!current) {
+      return null;
+    }
+    return findPopupPage(current);
+  }
+
+  function cleanupViewCartLinks(scope) {
+    if (!scope) {
+      return;
+    }
+    const links = scope.querySelectorAll ? scope.querySelectorAll('.added_to_cart') : [];
+    links.forEach((link) => link.remove());
+  }
+
+  function hydrateCartButtons(root = document) {
+    if (!root) {
+      return;
+    }
+
+    const buttons = root.querySelectorAll('.cltd-add-to-cart');
+    buttons.forEach((button) => {
+      if (!button || preparedCartButtons.has(button)) {
+        return;
+      }
+      const label = button.textContent ? button.textContent.trim() : '';
+      if (label && !button.dataset.cltdCartLabel) {
+        button.dataset.cltdCartLabel = label;
+      }
+      cleanupViewCartLinks(button.parentElement || null);
+      preparedCartButtons.add(button);
+    });
   }
 
   function hydratePopupLinks(root = document) {
@@ -124,6 +182,142 @@
       if (match) {
         applyPopupAttributesToLink(link, match);
       }
+    });
+  }
+
+  function renderLoginErrors(form, messages) {
+    if (!form) {
+      return;
+    }
+
+    const container = form.closest('.cltd-auth');
+    if (!container) {
+      return;
+    }
+
+    const normalizedMessages = Array.isArray(messages) ? messages.filter((message) => typeof message === 'string' && message.trim()) : [];
+
+    if (!normalizedMessages.length) {
+      const existingNotice = container.querySelector('[data-cltd-login-errors]');
+      if (existingNotice) {
+        existingNotice.remove();
+      }
+      return;
+    }
+
+    let notice = container.querySelector('[data-cltd-login-errors]');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.className = 'cltd-auth__notice cltd-auth__notice--error';
+      notice.setAttribute('data-cltd-login-errors', '1');
+
+      const description = container.querySelector('.cltd-auth__description');
+      if (description && typeof description.insertAdjacentElement === 'function') {
+        description.insertAdjacentElement('afterend', notice);
+      } else {
+        container.insertBefore(notice, container.firstChild);
+      }
+    }
+
+    let list = notice.querySelector('ul');
+    if (!list) {
+      list = document.createElement('ul');
+      notice.innerHTML = '';
+      notice.appendChild(list);
+    } else {
+      list.innerHTML = '';
+    }
+
+    normalizedMessages.forEach((message) => {
+      const item = document.createElement('li');
+      item.textContent = message;
+      list.appendChild(item);
+    });
+  }
+
+  async function submitLoginForm(form) {
+    if (!ajaxUrl || !form) {
+      return;
+    }
+
+    if (form.dataset.cltdLoginSubmitting === '1') {
+      return;
+    }
+
+    form.dataset.cltdLoginSubmitting = '1';
+
+    const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+    const originalLabel = submitButton && submitButton.tagName === 'BUTTON' ? submitButton.textContent : '';
+    if (submitButton) {
+      submitButton.disabled = true;
+      if (submitButton.tagName === 'BUTTON' && strings.loginProcessing) {
+        submitButton.dataset.cltdOriginalText = originalLabel;
+        submitButton.textContent = strings.loginProcessing;
+      }
+    }
+
+    renderLoginErrors(form, []);
+
+    const formData = new FormData(form);
+    formData.append('action', 'cltd_auth_login');
+    const nonceField = formData.get('cltd_auth_login_nonce');
+    if (nonceField && !formData.has('nonce')) {
+      formData.append('nonce', nonceField);
+    }
+
+    try {
+      const response = await fetch(ajaxUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: formData
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!payload) {
+        throw new Error('Invalid response');
+      }
+
+      if (payload.success && payload.data) {
+        const redirect = typeof payload.data.redirect === 'string' && payload.data.redirect ? payload.data.redirect : window.location.href;
+        window.location.href = redirect;
+        return;
+      }
+
+      const messages = payload.data && Array.isArray(payload.data.messages) && payload.data.messages.length
+        ? payload.data.messages
+        : [strings.loginError || 'Login failed. Please try again.'];
+      renderLoginErrors(form, messages);
+    } catch (error) {
+      renderLoginErrors(form, [strings.loginError || 'Login failed. Please try again.']);
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+        if (submitButton.dataset.cltdOriginalText) {
+          submitButton.textContent = submitButton.dataset.cltdOriginalText;
+          delete submitButton.dataset.cltdOriginalText;
+        }
+      }
+
+      delete form.dataset.cltdLoginSubmitting;
+    }
+  }
+
+  function hydrateLoginForms(root = document) {
+    if (!root || !ajaxUrl) {
+      return;
+    }
+
+    const forms = root.querySelectorAll('form[data-cltd-auth-login]');
+    forms.forEach((form) => {
+      if (!form || form.dataset.cltdLoginHydrated === '1') {
+        return;
+      }
+
+      form.dataset.cltdLoginHydrated = '1';
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        submitLoginForm(form);
+      });
     });
   }
 
@@ -357,6 +551,51 @@
     });
   }
 
+  function initInvertModeToggle() {
+    const selectors = new Set(['a[href="/dark"]', 'a[href="/dark/"]']);
+    if (homeUrl) {
+      const normalizedHome = homeUrl.replace(/\/+$/u, '');
+      if (normalizedHome) {
+        selectors.add(`a[href="${normalizedHome}/dark"]`);
+        selectors.add(`a[href="${normalizedHome}/dark/"]`);
+      }
+    }
+
+    const query = Array.from(selectors).join(', ');
+    if (!query) {
+      return;
+    }
+
+    const toggles = document.querySelectorAll(query);
+    if (!toggles.length) {
+      return;
+    }
+
+    const body = document.body;
+    const updateLabel = () => {
+      const isActive = body.classList.contains('invert-mode');
+      toggles.forEach((toggle) => {
+        if (!toggle) {
+          return;
+        }
+        toggle.textContent = isActive ? 'Light' : 'Dark';
+        toggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    };
+
+    const handleToggle = (event) => {
+      event.preventDefault();
+      body.classList.toggle('invert-mode');
+      updateLabel();
+    };
+
+    toggles.forEach((toggle) => {
+      toggle.addEventListener('click', handleToggle);
+    });
+
+    updateLabel();
+  }
+
 
   function initHeroBackground() {
     const sliderEl = document.querySelector('[data-hero-slider]');
@@ -557,7 +796,10 @@
     initHeroBackground();
     initLottieIcons();
     hydratePopupLinks();
+    hydrateCartButtons();
     hydrateLightboxImages();
+    hydrateLoginForms();
+    initInvertModeToggle();
   }
 
   if (document.readyState !== 'loading') {
@@ -709,6 +951,17 @@
       activeTrigger.focus();
     }
     activeTrigger = null;
+    redirectAfterOrderCancelledClose();
+  }
+
+  function redirectAfterOrderCancelledClose() {
+    if (!orderCancelledPath) {
+      return;
+    }
+    const currentPath = normalizePath(window.location.pathname || window.location.href || '');
+    if (currentPath === orderCancelledPath) {
+      window.location.href = homeUrl || '/';
+    }
   }
 
   function trapFocus(event) {
@@ -777,7 +1030,8 @@
     try {
       const response = await fetch(`${base}${encodeURIComponent(slug)}`, {
         signal: controller.signal,
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        headers: restNonce ? { 'X-WP-Nonce': restNonce } : {}
       });
 
       if (!response.ok) {
@@ -792,7 +1046,11 @@
       if (content) {
         contentEl.innerHTML = content;
         hydratePopupLinks(contentEl);
+        hydrateCartButtons(contentEl);
+        cleanupViewCartLinks(contentEl);
         hydrateLightboxImages(contentEl);
+        hydrateLoginForms(contentEl);
+        hydrateLoginForms(contentEl);
       } else {
         setStatus(strings.error, true);
       }
@@ -842,7 +1100,8 @@
     try {
       const response = await fetch(`${base}${numericId}`, {
         signal: controller.signal,
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        headers: restNonce ? { 'X-WP-Nonce': restNonce } : {}
       });
 
       if (!response.ok) {
@@ -860,7 +1119,10 @@
       if (content) {
         contentEl.innerHTML = content;
         hydratePopupLinks(contentEl);
+        hydrateCartButtons(contentEl);
+        cleanupViewCartLinks(contentEl);
         hydrateLightboxImages(contentEl);
+        hydrateLoginForms(contentEl);
       } else if (fallbackUrl) {
         const paragraph = document.createElement('p');
         paragraph.className = 'cltd-modal__status is-error';
@@ -871,6 +1133,8 @@
         contentEl.innerHTML = '';
         contentEl.appendChild(paragraph);
         hydratePopupLinks(contentEl);
+        hydrateCartButtons(contentEl);
+        cleanupViewCartLinks(contentEl);
         hydrateLightboxImages(contentEl);
       } else {
         setStatus(strings.error, true);
@@ -891,6 +1155,43 @@
 
       requestAnimationFrame(updateScrollIndicator);
     }
+  }
+
+  function createAutoTriggerForPage(page) {
+    if (!page || !page.id) {
+      return null;
+    }
+
+    const phantom = document.createElement('a');
+    phantom.href = page.permalink || window.location.href;
+    phantom.dataset.popup = 'true';
+    phantom.dataset.popupPageId = String(page.id);
+
+    if (page.permalink) {
+      phantom.dataset.popupUrl = page.permalink;
+    }
+    if (page.title) {
+      phantom.dataset.popupTitle = page.title;
+    }
+
+    phantom.setAttribute('tabindex', '-1');
+    phantom.setAttribute('aria-hidden', 'true');
+    phantom.style.position = 'absolute';
+    phantom.style.width = '1px';
+    phantom.style.height = '1px';
+    phantom.style.overflow = 'hidden';
+    phantom.style.clip = 'rect(0 0 0 0)';
+    phantom.style.clipPath = 'inset(50%)';
+    if (!phantom.dataset.gtmPopup) {
+      const explicitSlug = typeof page.slug === 'string' && page.slug ? page.slug : '';
+      const derivedSlug = explicitSlug || extractSlug(normalizePath(page.permalink || page.url || window.location.pathname || ''));
+      if (derivedSlug) {
+        phantom.dataset.gtmPopup = derivedSlug;
+      }
+    }
+
+    document.body.appendChild(phantom);
+    return phantom;
   }
 
   function activatePopupTrigger(trigger) {
@@ -944,4 +1245,40 @@
       closeModal();
     }
   });
+
+  const autoOpenPage = getCurrentPopupMatch();
+  if (autoOpenPage) {
+    const runAutoOpen = () => {
+      const phantomTrigger = createAutoTriggerForPage(autoOpenPage);
+      if (!phantomTrigger) {
+        return;
+      }
+      requestAnimationFrame(() => {
+        activatePopupTrigger(phantomTrigger);
+        phantomTrigger.remove();
+      });
+    };
+
+    if (document.readyState !== 'loading') {
+      runAutoOpen();
+    } else {
+      document.addEventListener('DOMContentLoaded', runAutoOpen, { once: true });
+    }
+  }
+
+  if (window.jQuery) {
+    const $ = window.jQuery;
+    $(document.body).on('added_to_cart', (event, fragments, cartHash, $button) => {
+      if (!$button || !$button.length || !$button.hasClass('cltd-add-to-cart')) {
+        return;
+      }
+      const element = $button.get(0);
+      if (element && element.dataset.cltdCartLabel) {
+        $button.text(element.dataset.cltdCartLabel);
+      }
+      $button.removeClass('added');
+      const parent = $button.parent().get(0) || null;
+      cleanupViewCartLinks(parent || document);
+    });
+  }
 })();

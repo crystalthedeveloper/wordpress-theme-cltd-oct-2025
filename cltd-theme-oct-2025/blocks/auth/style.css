@@ -1,13 +1,3 @@
-.cltd-auth {
-  max-width: 460px;
-  margin: 0 auto;
-  padding: 2.5rem 2.25rem;
-  border-radius: 24px;
-  background: #fdfdfd;
-  box-shadow: 20px 20px 40px rgba(8, 12, 24, 0.08), -12px -12px 32px rgba(255, 255, 255, 0.9);
-  color: #0c111d;
-  font-family: var(--wp--preset--font-family--system-sans, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
-}
 
 .cltd-auth + .cltd-auth {
   margin-top: 2rem;
@@ -18,14 +8,10 @@
   margin: 0 0 0.35rem;
 }
 
-.cltd-auth__description {
-  margin: 0 0 1.5rem;
-  color: rgba(12, 17, 29, 0.7);
-}
-
 .cltd-auth__form {
-  display: grid;
+  display: block;
   gap: 1.2rem;
+  width: 68%;
 }
 
 .cltd-auth__field,
@@ -36,12 +22,6 @@
 .cltd-auth__field label,
 .cltd-auth__form label {
   display: block;
-  margin-bottom: 0.4rem;
-  font-size: 0.75rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  font-weight: 600;
-  color: rgba(8, 11, 19, 0.5);
 }
 
 .cltd-auth input[type="text"],
@@ -125,31 +105,21 @@
 .cltd-auth__footer {
   margin-top: 1.25rem;
   font-size: 0.95rem;
-  text-align: center;
-  color: rgba(12, 17, 29, 0.8);
 }
 
 .cltd-auth__footer a {
   font-weight: 600;
-  text-decoration: none;
 }
 
 .cltd-auth__links {
   margin-top: 1rem;
-  display: grid;
   gap: 0.4rem;
   font-size: 0.95rem;
-  text-align: center;
 }
 
 .cltd-auth__links a {
   color: inherit;
   font-weight: 600;
-}
-
-.cltd-auth__button {
-  width: 100%;
-  justify-content: center;
 }
 
 .cltd-auth__notice {
@@ -177,29 +147,6 @@
 
 .cltd-auth__compact-message a {
   font-weight: 600;
-}
-
-.cltd-auth__form button,
-.cltd-auth__form input[type="submit"],
-.cltd-auth #loginform .button {
-  border: none;
-  border-radius: 999px;
-  padding: 0.95rem 1.5rem;
-  font-weight: 600;
-  background: linear-gradient(145deg, #090b13, #151c2f);
-  color: #fff;
-  box-shadow: 12px 12px 24px rgba(9, 11, 19, 0.4), -8px -8px 20px rgba(255, 255, 255, 0.08);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.cltd-auth__form button:hover,
-.cltd-auth__form button:focus-visible,
-.cltd-auth__form input[type="submit"]:hover,
-.cltd-auth__form input[type="submit"]:focus-visible,
-.cltd-auth #loginform .button:hover,
-.cltd-auth #loginform .button:focus-visible {
-  transform: translateY(-1px);
-  box-shadow: 18px 20px 38px rgba(9, 11, 19, 0.45), -10px -10px 24px rgba(255, 255, 255, 0.12);
 }
 
 .cltd-auth__stats {
