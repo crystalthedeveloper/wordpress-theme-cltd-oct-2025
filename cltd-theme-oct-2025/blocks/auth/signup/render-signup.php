@@ -90,15 +90,10 @@ $old_value    = function ($key) use ($old) {
             </span>
         </label>
 
-
-        <br>
-
         <label class="cltd-auth__checkbox">
             <input type="checkbox" name="cltd_signup_marketing" value="1" <?php checked($old_value('marketing'), '1'); ?>>
             <span><?php esc_html_e('I consent to receive marketing emails.', 'cltd-theme-oct-2025'); ?></span>
         </label>
-
-        <br>
 
         <button type="submit" class="cltd-button cltd-auth__button">
             <?php esc_html_e('Sign Up', 'cltd-theme-oct-2025'); ?>

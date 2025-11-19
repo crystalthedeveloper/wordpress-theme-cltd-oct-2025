@@ -98,16 +98,38 @@
 }
 
 .cltd-popup-item__header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
   background: linear-gradient(135deg, #f4f5fc 0%, #eef0fb 100%);
   padding: 1rem 1.25rem;
   border-radius: 14px 14px 0 0;
-  align-items: center;
   justify-content: space-between;
   cursor: pointer;
   font-family: 'Playfair Display', serif;
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0.06em;
+}
+
+.cltd-popup-item__handle {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid #cbd0ef;
+  background: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  cursor: move;
+  color: #4c4f6b;
+  flex-shrink: 0;
+}
+
+.cltd-popup-item__handle:hover {
+  border-color: #8b90c6;
+  color: #2c3054;
 }
 
 .cltd-popup-item__header:hover {
@@ -192,4 +214,16 @@
   color: rgba(29, 31, 47, 0.6);
   font-size: 0.8rem;
   line-height: 1.4;
+}
+
+.cltd-popup-item__order-note {
+  margin: 0.4rem 0 0;
+}
+
+.cltd-popup-item__placeholder {
+  border: 2px dashed #9ba4dd;
+  border-radius: 14px;
+  min-height: 120px;
+  background: rgba(155, 164, 221, 0.12);
+  margin-bottom: 1.5rem;
 }

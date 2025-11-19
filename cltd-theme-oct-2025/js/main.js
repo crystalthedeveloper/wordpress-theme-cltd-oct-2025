@@ -6,12 +6,47 @@
   const restBase = typeof config.restUrl === 'string' ? config.restUrl : '';
   const pageRestBase = typeof config.pagePopupRestUrl === 'string' ? config.pagePopupRestUrl : '';
   const ajaxUrl = typeof config.ajaxUrl === 'string' && config.ajaxUrl ? config.ajaxUrl : '';
+  const clownhuntRestBase = typeof config.clownhuntRestBase === 'string' && config.clownhuntRestBase ? config.clownhuntRestBase : '';
+  const clownhuntGameUrl = typeof config.clownhuntGameUrl === 'string' && config.clownhuntGameUrl ? config.clownhuntGameUrl : 'https://clown-hunt.vercel.app/';
+  const clownhuntApi = typeof config.clownhuntApi === 'object' && config.clownhuntApi ? config.clownhuntApi : {};
   const heroBackground = config.heroBackground || {};
   const popupPages = Array.isArray(config.popupPages) ? config.popupPages : [];
   const popupPageLookup = new Map();
   const popupSlugLookup = new Map();
   const processedLightboxImages = new WeakSet();
   const preparedCartButtons = new WeakSet();
+  const shouldSkipCltdForm = (form) => {
+    if (!form) {
+      return false;
+    }
+    if (form.dataset && form.dataset.cltdPlayForm === '1') {
+      return true;
+    }
+    if (typeof form.closest === 'function' && form.closest('[data-cltd-play-form="1"]')) {
+      return true;
+    }
+    return false;
+  };
+  const loadProfileEndpoint =
+    typeof clownhuntApi.loadProfile === 'string' && clownhuntApi.loadProfile
+      ? clownhuntApi.loadProfile
+      : '';
+  const saveProfileEndpoint =
+    typeof clownhuntApi.saveProfile === 'string' && clownhuntApi.saveProfile
+      ? clownhuntApi.saveProfile
+      : '';
+  const loadGuestEndpoint =
+    typeof clownhuntApi.loadGuest === 'string' && clownhuntApi.loadGuest
+      ? clownhuntApi.loadGuest
+      : '';
+  const saveGuestEndpoint =
+    typeof clownhuntApi.saveGuest === 'string' && clownhuntApi.saveGuest
+      ? clownhuntApi.saveGuest
+      : '';
+  const leaderboardEndpoint =
+    typeof clownhuntApi.leaderboard === 'string' && clownhuntApi.leaderboard
+      ? clownhuntApi.leaderboard
+      : '';
   let lightboxElements = null;
   const strings = Object.assign(
     {
@@ -21,6 +56,8 @@
     },
     config.strings || {}
   );
+  const leaderboardEmptyMessage = strings.leaderboardEmpty || 'Leaderboard data will appear here soon.';
+  const leaderboardLoadingMessage = strings.leaderboardLoading || strings.loading || 'Loading…';
 
   if (popupPages.length) {
     popupPages.forEach((page) => {
@@ -43,6 +80,29 @@
       return '';
     }
     return host.toLowerCase().replace(/^www\./u, '');
+  }
+
+  function toNumber(value, fallback = 0) {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  }
+
+  function getCurrentUserId() {
+    if (typeof window.wpUserId !== 'undefined') {
+      const localized = toNumber(window.wpUserId, 0);
+      if (localized > 0) {
+        return localized;
+      }
+    }
+
+    if (typeof config.currentUserId !== 'undefined') {
+      const fromConfig = toNumber(config.currentUserId, 0);
+      if (fromConfig > 0) {
+        return fromConfig;
+      }
+    }
+
+    return 0;
   }
 
   function normalizePath(url) {
@@ -100,6 +160,20 @@
     return null;
   }
 
+  function getPopupSlugFromQuery() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      const raw = params.get('popup') || params.get('cltd_popup');
+      if (!raw) {
+        return '';
+      }
+      const trimmed = raw.trim().toLowerCase();
+      return trimmed.replace(/[^a-z0-9-_]/g, '');
+    } catch (error) {
+      return '';
+    }
+  }
+
   function applyPopupAttributesToLink(link, page) {
     if (!link || !page) {
       return;
@@ -137,6 +211,140 @@
       return null;
     }
     return findPopupPage(current);
+  }
+
+  async function hydrateAccountStats() {
+    const killsEl = document.getElementById('user-kills');
+    const rankEl = document.getElementById('user-rank');
+
+    if (!killsEl || !rankEl) {
+      return;
+    }
+
+    const applyStats = (killsValue, rankValue) => {
+      killsEl.textContent = String(toNumber(killsValue, 0));
+      rankEl.textContent = String(toNumber(rankValue, 0));
+    };
+
+    applyStats(killsEl.textContent, rankEl.textContent);
+
+    const userId = getCurrentUserId();
+    if (!userId) {
+      applyStats(0, 0);
+      return;
+    }
+
+    if (!loadProfileEndpoint) {
+      console.warn('Clown Hunt load profile endpoint missing.');
+      applyStats(0, 0);
+      return;
+    }
+
+    try {
+      const profileRes = await fetch(loadProfileEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ user_id: String(userId) })
+      });
+
+      if (!profileRes.ok) {
+        throw new Error(`Profile request failed with status ${profileRes.status}`);
+      }
+
+      const profile = await profileRes.json();
+      if (!profile || profile.status !== 'success') {
+        throw new Error(profile && profile.message ? profile.message : 'Invalid profile response');
+      }
+      const killsValue = typeof profile.kills !== 'undefined' ? profile.kills : 0;
+      const rankValue = typeof profile.rank !== 'undefined' ? profile.rank : 0;
+      applyStats(killsValue, rankValue);
+    } catch (error) {
+      console.warn('Unable to load Clown Hunt profile.', error);
+    }
+  }
+
+  function renderLeaderboardFallback(tbody, message) {
+    if (!tbody) {
+      return;
+    }
+
+    const row = document.createElement('tr');
+    row.className = 'cltd-auth__leaderboard-row is-empty';
+    const cell = document.createElement('td');
+    cell.colSpan = 3;
+    cell.textContent = message;
+    row.appendChild(cell);
+    tbody.innerHTML = '';
+    tbody.appendChild(row);
+  }
+
+  async function hydrateLeaderboard() {
+    const tbody = document.getElementById('leaderboard-body');
+    if (!tbody) {
+      return;
+    }
+
+    if (!leaderboardEndpoint) {
+      renderLeaderboardFallback(tbody, leaderboardEmptyMessage);
+      console.warn('Clown Hunt leaderboard endpoint missing.');
+      return;
+    }
+
+    renderLeaderboardFallback(tbody, leaderboardLoadingMessage);
+
+    try {
+      const response = await fetch(leaderboardEndpoint, {
+        headers: {
+          Accept: 'application/json'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Leaderboard request failed with status ${response.status}`);
+      }
+
+      const board = await response.json();
+      if (!board || board.status !== 'success') {
+        throw new Error(board && board.message ? board.message : 'Invalid leaderboard response');
+      }
+      const players = Array.isArray(board.leaderboard) ? board.leaderboard : [];
+
+      if (!players.length) {
+        renderLeaderboardFallback(tbody, leaderboardEmptyMessage);
+        return;
+      }
+
+      tbody.innerHTML = '';
+      players.forEach((player, index) => {
+        const row = document.createElement('tr');
+        row.className = 'cltd-auth__leaderboard-row';
+
+        const rankCell = document.createElement('td');
+        const killsCell = document.createElement('td');
+        const nameCell = document.createElement('td');
+
+        const resolvedRank = toNumber(player && player.rank, index + 1);
+        const resolvedKills = toNumber(player && player.kills, 0);
+        const resolvedName =
+          (player && typeof player.first_name === 'string' && player.first_name.trim()) ||
+          (player && typeof player.name === 'string' && player.name.trim()) ||
+          'Unknown';
+
+        rankCell.textContent = String(resolvedRank);
+        nameCell.textContent = resolvedName;
+        killsCell.textContent = String(resolvedKills);
+
+        row.appendChild(rankCell);
+        row.appendChild(nameCell);
+        row.appendChild(killsCell);
+        tbody.appendChild(row);
+      });
+    } catch (error) {
+      console.warn('Unable to load leaderboard.', error);
+      renderLeaderboardFallback(tbody, leaderboardEmptyMessage);
+    }
   }
 
   function cleanupViewCartLinks(scope) {
@@ -235,8 +443,32 @@
     });
   }
 
+  function renderGuestErrors(wrapper, messages) {
+    if (!wrapper) {
+      return;
+    }
+
+    wrapper.innerHTML = '';
+    const normalizedMessages = Array.isArray(messages) ? messages.filter((message) => typeof message === 'string' && message.trim()) : [];
+
+    if (!normalizedMessages.length) {
+      return;
+    }
+
+    const notice = document.createElement('div');
+    notice.className = 'cltd-auth__notice cltd-auth__notice--error';
+    const list = document.createElement('ul');
+    normalizedMessages.forEach((message) => {
+      const li = document.createElement('li');
+      li.textContent = message;
+      list.appendChild(li);
+    });
+    notice.appendChild(list);
+    wrapper.appendChild(notice);
+  }
+
   async function submitLoginForm(form) {
-    if (!ajaxUrl || !form) {
+    if (!ajaxUrl || !form || shouldSkipCltdForm(form)) {
       return;
     }
 
@@ -309,15 +541,140 @@
 
     const forms = root.querySelectorAll('form[data-cltd-auth-login]');
     forms.forEach((form) => {
-      if (!form || form.dataset.cltdLoginHydrated === '1') {
+      if (!form || form.dataset.cltdLoginHydrated === '1' || shouldSkipCltdForm(form)) {
         return;
       }
 
       form.dataset.cltdLoginHydrated = '1';
       form.addEventListener('submit', (event) => {
+        if (shouldSkipCltdForm(form)) {
+          return;
+        }
         event.preventDefault();
         submitLoginForm(form);
       });
+    });
+  }
+
+  async function submitGuestForm(form) {
+    if (!clownhuntRestBase || !form || form.dataset.cltdGuestSubmitting === '1' || shouldSkipCltdForm(form)) {
+      return;
+    }
+
+    const firstNameInput = form.querySelector('input[name="cltd_guest_first_name"]');
+    const emailInput = form.querySelector('input[name="cltd_guest_email"]');
+    const errorWrapper = form.parentElement ? form.parentElement.querySelector('[data-cltd-guest-errors]') : null;
+
+    const firstName = firstNameInput ? firstNameInput.value.trim() : '';
+    const email = emailInput ? emailInput.value.trim() : '';
+
+    renderGuestErrors(errorWrapper, []);
+
+    if (!firstName || !email) {
+      renderGuestErrors(errorWrapper, [strings.loginError || 'Please complete all guest fields.']);
+      return;
+    }
+
+    form.dataset.cltdGuestSubmitting = '1';
+
+    const submitButton = form.querySelector('button[type="submit"], input[type="submit"]');
+    if (submitButton) {
+      submitButton.disabled = true;
+    }
+
+    try {
+      const response = await fetch(`${clownhuntRestBase}create_guest`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-WP-Nonce': restNonce
+        },
+        body: JSON.stringify({
+          email,
+          first_name: firstName
+        })
+      });
+
+      const payload = await response.json().catch(() => null);
+      if (!response.ok || !payload || typeof payload !== 'object') {
+        const message = payload && payload.message ? payload.message : (strings.loginError || 'Unable to create guest token.');
+        renderGuestErrors(errorWrapper, [message]);
+        return;
+      }
+
+      const token = payload.token || (payload.data && payload.data.token);
+      if (!token) {
+        renderGuestErrors(errorWrapper, [strings.loginError || 'Guest token response missing token value.']);
+        return;
+      }
+
+      const target = `${clownhuntGameUrl}?clownhunt_guest_token=${encodeURIComponent(token)}`;
+      window.location.href = target;
+    } catch (error) {
+      renderGuestErrors(errorWrapper, [strings.loginError || 'Unable to create guest token.']);
+    } finally {
+      if (submitButton) {
+        submitButton.disabled = false;
+      }
+      delete form.dataset.cltdGuestSubmitting;
+    }
+  }
+
+  function hydrateGuestForms(root = document) {
+    if (!root) {
+      return;
+    }
+
+    const forms = root.querySelectorAll('form[data-cltd-guest-login]');
+    forms.forEach((form) => {
+      if (form.dataset.cltdGuestHydrated === '1' || shouldSkipCltdForm(form)) {
+        return;
+      }
+      form.dataset.cltdGuestHydrated = '1';
+      form.addEventListener('submit', (event) => {
+        if (shouldSkipCltdForm(form)) {
+          return;
+        }
+        event.preventDefault();
+        submitGuestForm(form);
+      });
+    });
+  }
+
+  function hydrateGuestSections(root = document) {
+    if (!root) {
+      return;
+    }
+
+    const areas = root.querySelectorAll('[data-cltd-guest-area]');
+    areas.forEach((area) => {
+      if (!area || area.dataset.cltdGuestHydrated === '1') {
+        return;
+      }
+
+      const toggle = area.querySelector('[data-cltd-guest-toggle]');
+      const panel = area.querySelector('[data-cltd-guest-panel]');
+      if (!toggle || !panel) {
+        return;
+      }
+
+      const setState = (open) => {
+        if (open) {
+          panel.hidden = false;
+          area.dataset.cltdGuestOpen = 'true';
+        } else {
+          panel.hidden = true;
+          area.dataset.cltdGuestOpen = 'false';
+        }
+      };
+
+      setState(false);
+
+      toggle.addEventListener('click', () => {
+        setState(panel.hidden);
+      });
+
+      area.dataset.cltdGuestHydrated = '1';
     });
   }
 
@@ -552,46 +909,142 @@
   }
 
   function initInvertModeToggle() {
-    const selectors = new Set(['a[href="/dark"]', 'a[href="/dark/"]']);
-    if (homeUrl) {
-      const normalizedHome = homeUrl.replace(/\/+$/u, '');
-      if (normalizedHome) {
-        selectors.add(`a[href="${normalizedHome}/dark"]`);
-        selectors.add(`a[href="${normalizedHome}/dark/"]`);
-      }
-    }
-
-    const query = Array.from(selectors).join(', ');
-    if (!query) {
-      return;
-    }
-
-    const toggles = document.querySelectorAll(query);
-    if (!toggles.length) {
-      return;
-    }
-
     const body = document.body;
-    const updateLabel = () => {
+    if (!body) {
+      return;
+    }
+
+    let lastTouchToggle = 0;
+
+    function isInvertToggle(element) {
+      if (!element) {
+        return false;
+      }
+
+      if (element.matches('[data-cltd-invert-toggle]')) {
+        return true;
+      }
+
+      const label = (element.textContent || '').trim().toLowerCase();
+      if (label === 'dark' || label === 'light') {
+        return true;
+      }
+
+      if (element.matches('a[href]')) {
+        const href = element.getAttribute('href') || '';
+        if (!href) {
+          return false;
+        }
+
+        const trimmed = href.trim();
+        if (!trimmed) {
+          return false;
+        }
+
+        if (trimmed.replace(/^#+/u, '').toLowerCase() === 'dark') {
+          return true;
+        }
+
+        const normalized = normalizePath(trimmed);
+        if (normalized === '/dark') {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
+    function getInvertToggleElements() {
+      const candidates = document.querySelectorAll('a[href], button[data-cltd-invert-toggle], [data-cltd-invert-toggle]');
+      return Array.from(candidates).filter(isInvertToggle);
+    }
+
+    function toggleInvertModeState() {
+      body.classList.toggle('invert-mode');
+      updateLabel();
+    }
+
+    function updateLabel() {
       const isActive = body.classList.contains('invert-mode');
+      const toggles = getInvertToggleElements();
       toggles.forEach((toggle) => {
         if (!toggle) {
           return;
         }
+        if (!(toggle.tagName && toggle.tagName.toLowerCase() === 'a')) {
+          toggle.setAttribute('role', 'button');
+          toggle.setAttribute('tabindex', toggle.getAttribute('tabindex') || '0');
+        } else if (toggle.getAttribute('role') === 'button') {
+          toggle.removeAttribute('role');
+        }
+
         toggle.textContent = isActive ? 'Light' : 'Dark';
         toggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       });
-    };
+    }
 
-    const handleToggle = (event) => {
-      event.preventDefault();
-      body.classList.toggle('invert-mode');
-      updateLabel();
-    };
+    function activateToggle(event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      toggleInvertModeState();
+    }
 
-    toggles.forEach((toggle) => {
-      toggle.addEventListener('click', handleToggle);
+    function handleDelegatedClick(event) {
+      const target = event.target.closest('[data-cltd-invert-toggle], a[href], button');
+      if (!target || !isInvertToggle(target)) {
+        return;
+      }
+
+      if (event.type === 'touchend') {
+        lastTouchToggle = Date.now();
+      } else if (event.type === 'click') {
+        if (lastTouchToggle && Date.now() - lastTouchToggle < 350) {
+          event.preventDefault();
+          return;
+        }
+      } else if (event.type === 'keydown' && event.key !== ' ' && event.key !== 'Enter') {
+        return;
+      }
+
+      activateToggle(event);
+    }
+
+    document.addEventListener('click', handleDelegatedClick);
+    document.addEventListener('touchend', handleDelegatedClick, { passive: false });
+    document.addEventListener('keydown', (event) => {
+      const target = event.target.closest('[data-cltd-invert-toggle], a[href], button');
+      if (!target || !isInvertToggle(target)) {
+        return;
+      }
+      handleDelegatedClick(event);
     });
+
+    if (typeof window.MutationObserver === 'function') {
+      let scheduled = false;
+      const scheduleUpdate = () => {
+        if (scheduled) {
+          return;
+        }
+        scheduled = true;
+        const runner = window.requestAnimationFrame || window.webkitRequestAnimationFrame || ((cb) => setTimeout(cb, 16));
+        runner(() => {
+          scheduled = false;
+          updateLabel();
+        });
+      };
+
+      const observer = new MutationObserver((mutations) => {
+        for (let i = 0; i < mutations.length; i += 1) {
+          if (mutations[i].addedNodes && mutations[i].addedNodes.length) {
+            scheduleUpdate();
+            break;
+          }
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
 
     updateLabel();
   }
@@ -623,6 +1076,10 @@
           if (video) {
             video.loop = !!slideConfig.loop;
             video.muted = !!slideConfig.mute;
+            if (slide.dataset.hideControls === '1') {
+              video.classList.add('is-hidden-controls');
+              video.removeAttribute('controls');
+            }
             videoMap.set(slide, { element: video, config: slideConfig });
           }
         } else if (type === 'lottie') {
@@ -798,8 +1255,12 @@
     hydratePopupLinks();
     hydrateCartButtons();
     hydrateLightboxImages();
+    hydrateGuestSections();
+    hydrateGuestForms();
     hydrateLoginForms();
     initInvertModeToggle();
+    hydrateAccountStats();
+    hydrateLeaderboard();
   }
 
   if (document.readyState !== 'loading') {
@@ -1049,7 +1510,8 @@
         hydrateCartButtons(contentEl);
         cleanupViewCartLinks(contentEl);
         hydrateLightboxImages(contentEl);
-        hydrateLoginForms(contentEl);
+        hydrateGuestSections(contentEl);
+        hydrateGuestForms(contentEl);
         hydrateLoginForms(contentEl);
       } else {
         setStatus(strings.error, true);
@@ -1122,6 +1584,8 @@
         hydrateCartButtons(contentEl);
         cleanupViewCartLinks(contentEl);
         hydrateLightboxImages(contentEl);
+        hydrateGuestSections(contentEl);
+        hydrateGuestForms(contentEl);
         hydrateLoginForms(contentEl);
       } else if (fallbackUrl) {
         const paragraph = document.createElement('p');
@@ -1136,6 +1600,8 @@
         hydrateCartButtons(contentEl);
         cleanupViewCartLinks(contentEl);
         hydrateLightboxImages(contentEl);
+        hydrateGuestSections(contentEl);
+        hydrateGuestForms(contentEl);
       } else {
         setStatus(strings.error, true);
       }
@@ -1223,6 +1689,9 @@
   }
 
   function handleTriggerClick(event) {
+    if (event.target && typeof event.target.closest === 'function' && event.target.closest('[data-cltd-play-form="1"]')) {
+      return;
+    }
     const trigger = event.target.closest('[data-popup-slug], [data-popup="true"]');
     if (!trigger) {
       return;
@@ -1246,6 +1715,7 @@
     }
   });
 
+  let hasAutoOpenedPopup = false;
   const autoOpenPage = getCurrentPopupMatch();
   if (autoOpenPage) {
     const runAutoOpen = () => {
@@ -1256,6 +1726,7 @@
       requestAnimationFrame(() => {
         activatePopupTrigger(phantomTrigger);
         phantomTrigger.remove();
+        hasAutoOpenedPopup = true;
       });
     };
 
@@ -1263,6 +1734,21 @@
       runAutoOpen();
     } else {
       document.addEventListener('DOMContentLoaded', runAutoOpen, { once: true });
+    }
+  }
+
+  const autoPopupSlug = getPopupSlugFromQuery();
+  if (autoPopupSlug && !hasAutoOpenedPopup) {
+    const runSlugOpen = () => {
+      openModal();
+      fetchPopup(autoPopupSlug);
+      hasAutoOpenedPopup = true;
+    };
+
+    if (document.readyState !== 'loading') {
+      runSlugOpen();
+    } else {
+      document.addEventListener('DOMContentLoaded', runSlugOpen, { once: true });
     }
   }
 

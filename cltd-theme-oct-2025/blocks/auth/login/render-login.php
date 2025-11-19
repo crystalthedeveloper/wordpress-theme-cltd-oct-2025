@@ -83,8 +83,6 @@ $signup_url        = home_url('/sign-up');
         </button>
     </form>
 
-    <br />
-
     <div class="cltd-auth__links">
         <a href="<?php echo esc_url($lost_password_url); ?>">
             <?php esc_html_e('Forgot your password?', 'cltd-theme-oct-2025'); ?>
@@ -97,5 +95,29 @@ $signup_url        = home_url('/sign-up');
                 <?php esc_html_e('Sign Up', 'cltd-theme-oct-2025'); ?>
             </a>
         </p>
+    </div>
+
+    <div class="cltd-auth__guest" data-cltd-guest-area>
+        <button type="button" class="cltd-auth__guest-toggle" data-cltd-guest-toggle>
+            <span class="cltd-auth__guest-toggle-label"><?php esc_html_e('Play as Guest', 'cltd-theme-oct-2025'); ?></span>
+            <span class="cltd-auth__guest-toggle-icon" aria-hidden="true">▼</span>
+        </button>
+        <div class="cltd-auth__guest-panel" data-cltd-guest-panel hidden>
+            <p class="cltd-auth__note"><?php esc_html_e('Enter your name and email to receive a temporary guest pass that expires in 5 minutes.', 'cltd-theme-oct-2025'); ?></p>
+            <div data-cltd-guest-errors></div>
+            <form class="cltd-auth__form" method="post" action="" data-cltd-guest-login="1">
+                <div class="cltd-auth__field">
+                    <label for="cltd-guest-first-name"><?php esc_html_e('First Name', 'cltd-theme-oct-2025'); ?></label>
+                    <input id="cltd-guest-first-name" type="text" name="cltd_guest_first_name" required autocomplete="given-name">
+                </div>
+                <div class="cltd-auth__field">
+                    <label for="cltd-guest-email"><?php esc_html_e('Email', 'cltd-theme-oct-2025'); ?></label>
+                    <input id="cltd-guest-email" type="email" name="cltd_guest_email" required autocomplete="email">
+                </div>
+                <button type="submit" class="cltd-button cltd-auth__button cltd-auth__button--alt">
+                    <?php esc_html_e('Get Guest Token', 'cltd-theme-oct-2025'); ?>
+                </button>
+            </form>
+        </div>
     </div>
 </div>

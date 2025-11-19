@@ -7,6 +7,19 @@
     }
   }
 
+  function updateOrderValues(container) {
+    if (!container) {
+      return;
+    }
+    const items = container.querySelectorAll('.cltd-popup-item');
+    items.forEach((item, index) => {
+      const input = item.querySelector('.cltd-popup-item__order-input');
+      if (input) {
+        input.value = String(index + 1);
+      }
+    });
+  }
+
   function updateLabels(container) {
     const items = container.querySelectorAll('.cltd-popup-item');
     items.forEach((item, index) => {
@@ -16,6 +29,7 @@
       }
     });
     container.setAttribute('data-next-index', String(items.length));
+    updateOrderValues(container);
   }
 
   function replaceIndex(html, index) {
@@ -138,6 +152,27 @@
     });
   }
 
+  function initSortable(list) {
+    if (typeof window.jQuery === 'undefined' || !list) {
+      return;
+    }
+    const $ = window.jQuery;
+    const $list = $(list);
+    if ($list.hasClass('ui-sortable')) {
+      try {
+        $list.sortable('destroy');
+      } catch (error) {} // eslint-disable-line no-empty
+    }
+    $list.sortable({
+      handle: '.cltd-popup-item__handle',
+      axis: 'y',
+      placeholder: 'cltd-popup-item__placeholder',
+      update: () => {
+        updateLabels(list);
+      }
+    });
+  }
+
   function initPreview(container) {
     if (!container) {
       return;
@@ -176,6 +211,7 @@
     list.querySelectorAll('.cltd-popup-item').forEach(initItem);
     updateLabels(list);
     initAccordion(list);
+    initSortable(list);
     initPreview(wrapper);
 
     addButton.addEventListener('click', (event) => {
@@ -191,6 +227,7 @@
       initRemoveButtons(newItem || list, list);
       initItem(newItem);
       initAccordion(list);
+      initSortable(list);
     });
   });
 })();
