@@ -602,14 +602,29 @@
         return;
       }
 
-      const token = payload.token || (payload.data && payload.data.token);
-      if (!token) {
-        renderGuestErrors(errorWrapper, [strings.loginError || 'Guest token response missing token value.']);
+      const gameUrl =
+        (payload && payload.game_url) ||
+        (payload && payload.data && payload.data.game_url) ||
+        '';
+      const restBase =
+        (payload && payload.rest_base) ||
+        (payload && payload.data && payload.data.rest_base) ||
+        '';
+
+      if (restBase && typeof window !== 'undefined' && window.localStorage) {
+        try {
+          window.localStorage.setItem('clownhunt_rest_base', restBase);
+        } catch (storageError) {
+          // Ignore storage errors (e.g. private mode).
+        }
+      }
+
+      if (!gameUrl) {
+        renderGuestErrors(errorWrapper, [strings.loginError || 'Unable to determine Clown Hunt guest URL.']);
         return;
       }
 
-      const target = `${clownhuntGameUrl}?clownhunt_guest_token=${encodeURIComponent(token)}`;
-      window.location.href = target;
+      window.location.href = gameUrl;
     } catch (error) {
       renderGuestErrors(errorWrapper, [strings.loginError || 'Unable to create guest token.']);
     } finally {

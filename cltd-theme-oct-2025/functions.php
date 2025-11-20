@@ -96,6 +96,8 @@ function cltd_theme_create_clownhunt_token_table() {
         user_id bigint(20) unsigned NOT NULL DEFAULT 0,
         is_guest tinyint(1) NOT NULL DEFAULT 0,
         guest_id varchar(64) DEFAULT NULL,
+        guest_email varchar(190) DEFAULT NULL,
+        guest_first_name varchar(190) DEFAULT NULL,
         expires_at datetime NOT NULL,
         PRIMARY KEY  (token),
         KEY expires_at (expires_at),
@@ -117,6 +119,20 @@ function cltd_theme_maybe_create_clownhunt_table() {
     $exists = $wpdb->get_var($wpdb->prepare('SHOW TABLES LIKE %s', $table_name));
     if ($exists !== $table_name) {
         cltd_theme_create_clownhunt_token_table();
+        return;
+    }
+
+    $columns = $wpdb->get_col("SHOW COLUMNS FROM `$table_name`", 0);
+    if (!is_array($columns)) {
+        return;
+    }
+
+    $required = ['guest_email', 'guest_first_name'];
+    foreach ($required as $column) {
+        if (!in_array($column, $columns, true)) {
+            cltd_theme_create_clownhunt_token_table();
+            break;
+        }
     }
 }
 add_action('init', 'cltd_theme_maybe_create_clownhunt_table', 5);
@@ -143,6 +159,8 @@ function cltd_theme_insert_clownhunt_token(array $args) {
         'user_id'  => 0,
         'is_guest' => 0,
         'guest_id' => null,
+        'guest_email' => null,
+        'guest_first_name' => null,
         'expires'  => null,
     ];
 
@@ -153,6 +171,22 @@ function cltd_theme_insert_clownhunt_token(array $args) {
     $expires_ts = $args['expires'] ? (int) $args['expires'] : (time() + 300);
     $expires_at = gmdate('Y-m-d H:i:s', $expires_ts);
 
+    $guest_email = null;
+    if (!empty($args['guest_email'])) {
+        $sanitized_guest_email = sanitize_email($args['guest_email']);
+        if ($sanitized_guest_email) {
+            $guest_email = $sanitized_guest_email;
+        }
+    }
+
+    $guest_first_name = null;
+    if (!empty($args['guest_first_name'])) {
+        $sanitized_guest_first_name = sanitize_text_field($args['guest_first_name']);
+        if ('' !== $sanitized_guest_first_name) {
+            $guest_first_name = $sanitized_guest_first_name;
+        }
+    }
+
     $inserted = $wpdb->insert(
         $table,
         [
@@ -160,9 +194,11 @@ function cltd_theme_insert_clownhunt_token(array $args) {
             'user_id'    => (int) $args['user_id'],
             'is_guest'   => $args['is_guest'] ? 1 : 0,
             'guest_id'   => $args['guest_id'] ? sanitize_text_field($args['guest_id']) : null,
+            'guest_email' => $guest_email,
+            'guest_first_name' => $guest_first_name,
             'expires_at' => $expires_at,
         ],
-        ['%s', '%d', '%d', '%s', '%s']
+        ['%s', '%d', '%d', '%s', '%s', '%s', '%s']
     );
 
     if (false === $inserted) {
@@ -436,7 +472,17 @@ function cltd_theme_to_camel_case($value) {
  * @return void
  */
 function cltd_theme_send_player_profile_to_lambda(array $payload, $context = 'unknown') {
-    if ($context !== 'register') {
+    $is_registration_context = ($context === 'register');
+    if ($is_registration_context) {
+        $current_action = function_exists('current_action') ? current_action() : '';
+        $doing_register = function_exists('doing_action') ? doing_action('user_register') : false;
+
+        if (!$doing_register && $current_action !== 'user_register') {
+            $is_registration_context = false;
+        }
+    }
+
+    if (!$is_registration_context) {
         return;
     }
 
@@ -510,6 +556,75 @@ function cltd_theme_fetch_player_profile_from_lambda($user_id) {
         'email'      => isset($data['email']) ? (string) $data['email'] : '',
         'first_name' => isset($data['first_name']) ? (string) $data['first_name'] : '',
         'last_name'  => isset($data['last_name']) ? (string) $data['last_name'] : '',
+        'kills'      => isset($data['kills']) ? (int) $data['kills'] : 0,
+        'rank'       => isset($data['rank']) ? (int) $data['rank'] : 0,
+        'created_at' => isset($data['created_at']) ? $data['created_at'] : null,
+        'updated_at' => isset($data['updated_at']) ? $data['updated_at'] : null,
+    ];
+}
+
+/**
+ * Fetch guest profile data from AWS Lambda.
+ *
+ * @param string $guest_id
+ * @param string $email
+ * @param string $first_name
+ * @return array|null
+ */
+function cltd_theme_fetch_guest_profile_from_lambda($guest_id, $email = '', $first_name = '') {
+    $guest_id = $guest_id ? (string) $guest_id : '';
+    if ('' === $guest_id || !defined('CLTD_AWS_LOAD_GUEST') || !CLTD_AWS_LOAD_GUEST) {
+        return null;
+    }
+
+    $payload = [
+        'guest_id' => $guest_id,
+    ];
+
+    if ($email) {
+        $payload['email'] = (string) $email;
+    }
+    if ($first_name) {
+        $payload['first_name'] = (string) $first_name;
+    }
+
+    $response = wp_remote_post(CLTD_AWS_LOAD_GUEST, [
+        'headers' => [
+            'Content-Type' => 'application/json',
+            'Accept'       => 'application/json',
+        ],
+        'body'    => wp_json_encode($payload),
+        'timeout' => 10,
+    ]);
+
+    if (is_wp_error($response)) {
+        error_log(sprintf('CLTD AWS load_guest_profile error: %s', $response->get_error_message()));
+        return null;
+    }
+
+    $status = (int) wp_remote_retrieve_response_code($response);
+    if ($status !== 200) {
+        error_log(sprintf('CLTD AWS load_guest_profile unexpected status: %d', $status));
+        return null;
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+    if (!is_array($data)) {
+        error_log('CLTD AWS load_guest_profile invalid JSON response.');
+        return null;
+    }
+
+    if (isset($data['status']) && $data['status'] !== 'success') {
+        $message = isset($data['message']) ? $data['message'] : 'unknown';
+        error_log(sprintf('CLTD AWS load_guest_profile error status: %s', $message));
+        return null;
+    }
+
+    return [
+        'guest_id'   => isset($data['guest_id']) ? (string) $data['guest_id'] : $guest_id,
+        'email'      => isset($data['email']) ? (string) $data['email'] : $email,
+        'first_name' => isset($data['first_name']) ? (string) $data['first_name'] : $first_name,
         'kills'      => isset($data['kills']) ? (int) $data['kills'] : 0,
         'rank'       => isset($data['rank']) ? (int) $data['rank'] : 0,
         'created_at' => isset($data['created_at']) ? $data['created_at'] : null,
@@ -1554,7 +1669,36 @@ function cltd_theme_rest_validate_clownhunt_token(WP_REST_Request $request) {
     ];
 
     if ($row->is_guest) {
-        $response['guest_id'] = $row->guest_id;
+        if (empty($row->guest_id) || empty($row->guest_email) || empty($row->guest_first_name)) {
+            cltd_theme_delete_clownhunt_token($token);
+            return new WP_Error('cltd_guest_metadata_missing', __('Guest session data is unavailable. Please request a new guest link.', 'cltd-theme-oct-2025'), ['status' => 410]);
+        }
+
+        $guest_profile = cltd_theme_fetch_guest_profile_from_lambda($row->guest_id, $row->guest_email, $row->guest_first_name);
+        $guest_kills = 0;
+        $guest_rank  = 0;
+
+        if (is_array($guest_profile)) {
+            if (array_key_exists('kills', $guest_profile)) {
+                $guest_kills = (int) $guest_profile['kills'];
+            }
+            if (array_key_exists('rank', $guest_profile)) {
+                $guest_rank = (int) $guest_profile['rank'];
+            }
+
+            if (!empty($guest_profile['email'])) {
+                $row->guest_email = (string) $guest_profile['email'];
+            }
+            if (!empty($guest_profile['first_name'])) {
+                $row->guest_first_name = (string) $guest_profile['first_name'];
+            }
+        }
+
+        $response['guest_id']   = (string) $row->guest_id;
+        $response['email']      = (string) $row->guest_email;
+        $response['first_name'] = (string) $row->guest_first_name;
+        $response['kills']      = $guest_kills;
+        $response['rank']       = $guest_rank;
     } else {
         $user = get_user_by('id', $row->user_id);
         if (!$user) {
@@ -1595,6 +1739,8 @@ function cltd_theme_rest_create_guest_token(WP_REST_Request $request) {
         'user_id'  => 0,
         'is_guest' => 1,
         'guest_id' => $guest_id,
+        'guest_email' => $email,
+        'guest_first_name' => $first_name,
     ]);
 
     if (is_wp_error($token)) {
@@ -1602,6 +1748,15 @@ function cltd_theme_rest_create_guest_token(WP_REST_Request $request) {
     }
 
     $expires_ts = time() + 300;
+    $game_base = 'https://clown-hunt.vercel.app';
+    $rest_base = 'https://www.crystalthedeveloper.ca/wp-json/clownhunt/v1';
+
+    $game_url = sprintf(
+        '%s?clownhunt_guest_token=%s&clownhunt_rest_base=%s',
+        untrailingslashit($game_base),
+        rawurlencode($token),
+        rawurlencode(untrailingslashit($rest_base))
+    );
 
     $response = [
         'status'     => 'success',
@@ -1611,6 +1766,8 @@ function cltd_theme_rest_create_guest_token(WP_REST_Request $request) {
         'expires_in' => 300,
         'email'      => $email,
         'first_name' => $first_name,
+        'game_url'   => esc_url_raw($game_url),
+        'rest_base'  => esc_url_raw($rest_base),
     ];
 
     return rest_ensure_response($response);
