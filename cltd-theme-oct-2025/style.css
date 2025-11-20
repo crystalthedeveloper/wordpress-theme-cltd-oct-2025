@@ -596,7 +596,7 @@ header.wp-block-template-part,
 .cltd-modal__dialog {
     position: relative;
     width: min(1200px, 100%);
-    max-height: calc(70vh - 4rem);
+    max-height: calc(80vh - 4rem);
     background: linear-gradient(145deg, #ffffff, #f3f3f3);
     border-radius: 28px;
     padding: 2rem 1.75rem;
