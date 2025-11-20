@@ -435,7 +435,11 @@ function cltd_theme_to_camel_case($value) {
  * @param array $payload
  * @return void
  */
-function cltd_theme_send_player_profile_to_lambda(array $payload) {
+function cltd_theme_send_player_profile_to_lambda(array $payload, $context = 'unknown') {
+    if ($context !== 'register') {
+        return;
+    }
+
     if (!defined('CLTD_AWS_SAVE_PROFILE') || !CLTD_AWS_SAVE_PROFILE || empty($payload)) {
         return;
     }
@@ -567,9 +571,31 @@ function cltd_theme_fetch_leaderboard_from_lambda() {
             continue;
         }
 
+        $first_name_value = '';
+        foreach (['first_name', 'firstName', 'player_first_name', 'playerFirstName'] as $key) {
+            if (!empty($entry[$key])) {
+                $first_name_value = (string) $entry[$key];
+                break;
+            }
+        }
+
+        $display_name_value = '';
+        foreach (['name', 'display_name', 'displayName', 'player_name', 'playerName'] as $key) {
+            if (!empty($entry[$key])) {
+                $display_name_value = (string) $entry[$key];
+                break;
+            }
+        }
+
+        if (!$first_name_value && $display_name_value) {
+            $first_name_value = $display_name_value;
+        } elseif (!$display_name_value && $first_name_value) {
+            $display_name_value = $first_name_value;
+        }
+
         $normalized[] = [
-            'first_name' => isset($entry['first_name']) ? (string) $entry['first_name'] : '',
-            'name'       => isset($entry['name']) ? (string) $entry['name'] : '',
+            'first_name' => $first_name_value,
+            'name'       => $display_name_value,
             'kills'      => isset($entry['kills']) ? (int) $entry['kills'] : 0,
             'rank'       => isset($entry['rank']) ? (int) $entry['rank'] : ($index + 1),
             'type'       => isset($entry['type']) ? (string) $entry['type'] : '',
@@ -626,7 +652,7 @@ function cltd_theme_sync_player_profile_on_register($user_id, $userdata) {
         'rank'       => 1,
         'created_at' => $timestamp,
         'updated_at' => $timestamp,
-    ]);
+    ], 'register');
 }
 add_action('user_register', 'cltd_theme_sync_player_profile_on_register', 10, 2);
 
@@ -1279,11 +1305,6 @@ function cltd_theme_handle_signup_request() {
 
     $user = get_userdata($user_id);
     if ($user instanceof WP_User) {
-        /**
-         * Manually trigger wp_login action to ensure downstream sync hooks (AWS) fire.
-         */
-        do_action('wp_login', $user->user_login, $user);
-
         $first_name_token = $old['first_name'] ?: cltd_theme_get_user_first_name($user);
         cltd_theme_send_resend_template('welcome-new-account', $user->user_email, [
             'first_name' => $first_name_token,
@@ -1635,7 +1656,7 @@ function cltd_theme_handle_clownhunt_play_request() {
 
     $game_url = 'https://clown-hunt.vercel.app';
     $redirect = add_query_arg('clownhunt_token', rawurlencode($token), $game_url);
-    $rest_base = rest_url('clownhunt/v1/');
+    $rest_base = 'https://www.crystalthedeveloper.ca/wp-json/clownhunt/v1';
     if ($rest_base) {
         $redirect = add_query_arg('clownhunt_rest_base', $rest_base, $redirect);
     }
@@ -1705,7 +1726,7 @@ function cltd_theme_build_clownhunt_link_with_token($href) {
     }
 
     $query_args['clownhunt_token'] = $token;
-    $query_args['clownhunt_rest_base'] = rest_url('clownhunt/v1/');
+    $query_args['clownhunt_rest_base'] = 'https://www.crystalthedeveloper.ca/wp-json/clownhunt/v1';
 
     $target = add_query_arg($query_args, $target);
 
