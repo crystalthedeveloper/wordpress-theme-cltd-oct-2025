@@ -28,9 +28,6 @@ get_header();
             </a>
         </div>
 
-        <div class="cltd-404__search">
-            <?php get_search_form(); ?>
-        </div>
     </div>
 </main>
 <?php

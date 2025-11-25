@@ -2590,7 +2590,7 @@ add_action('init', 'cltd_theme_register_popup_cpt');
 function cltd_theme_register_popup_rewrite() {
     add_rewrite_tag('%cltd_popup_slug%', '([^&]+)');
 
-    $page_targets = ['maintenance', 'terms-of-service', 'returns-policy', 'refund-returns'];
+    $page_targets = ['maintenance', 'terms-conditions', 'returns-policy', 'refund-returns'];
     $page_targets = apply_filters('cltd_popup_rewrite_page_slugs', $page_targets);
 
     if (is_array($page_targets)) {
@@ -2656,6 +2656,74 @@ function cltd_theme_handle_popup_slug_redirect() {
     exit;
 }
 add_action('template_redirect', 'cltd_theme_handle_popup_slug_redirect');
+
+/**
+ * Open specific pretty URLs directly in the visitor's email client.
+ */
+function cltd_theme_redirect_mailto_pages() {
+    $targets = [
+        'support' => 'contact@crystalthedeveloper.ca',
+        'contact' => 'contact@crystalthedeveloper.ca',
+    ];
+
+    $page      = is_page() ? get_queried_object() : null;
+    $targets   = apply_filters('cltd_theme_mailto_redirect_targets', $targets, $page);
+    $slugs     = [];
+    $request   = isset($_SERVER['REQUEST_URI']) ? wp_parse_url(wp_unslash($_SERVER['REQUEST_URI']), PHP_URL_PATH) : '';
+    $request   = is_string($request) ? trim($request, '/') : '';
+
+    if ($request !== '') {
+        $segments = array_filter(explode('/', $request));
+        if (!empty($segments)) {
+            $slugs[] = sanitize_title(end($segments));
+        }
+    }
+
+    if ($page instanceof WP_Post) {
+        $slugs[] = sanitize_title($page->post_name ?? '');
+    }
+
+    $slugs = array_values(array_unique(array_filter($slugs)));
+    if (empty($slugs)) {
+        return;
+    }
+
+    foreach ($slugs as $slug) {
+        if (!isset($targets[$slug])) {
+            continue;
+        }
+
+        $email = sanitize_email($targets[$slug]);
+        if (!$email) {
+            continue;
+        }
+
+        $mailto = apply_filters('cltd_theme_mailto_redirect_url', 'mailto:' . $email, $slug, $email, $page);
+        if (!$mailto) {
+            continue;
+        }
+
+        nocache_headers();
+        header('Content-Type: text/html; charset=' . get_bloginfo('charset'));
+
+        $mailto_attr = esc_url($mailto);
+        $mailto_js   = wp_json_encode($mailto);
+
+        echo '<!DOCTYPE html><html><head><meta charset="' . esc_attr(get_bloginfo('charset')) . '">';
+        echo '<title>' . esc_html__('Opening email app…', 'cltd-theme-oct-2025') . '</title>';
+        echo '<script>window.location.href = ' . $mailto_js . ';</script>';
+        echo '</head><body>';
+        printf(
+            '<p>%s <a href="%s">%s</a></p>',
+            esc_html__('Opening your email app. If nothing happens, click here:', 'cltd-theme-oct-2025'),
+            $mailto_attr,
+            esc_html__('Compose email', 'cltd-theme-oct-2025')
+        );
+        echo '</body></html>';
+        exit;
+    }
+}
+add_action('template_redirect', 'cltd_theme_redirect_mailto_pages', 5);
 
 /**
  * Optionally register taxonomy used to organize popup content.
@@ -3903,6 +3971,7 @@ function cltd_theme_get_hero_background_markup(array $background) {
                             <?php endif; ?>
                         >
                             <source src="<?php echo esc_url($slide['src']); ?>" type="<?php echo esc_attr(wp_check_filetype($slide['src'], null)['type'] ?? 'video/mp4'); ?>">
+                            <?php echo cltd_theme_get_hero_video_track_markup($slide); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
                         </video>
                         <?php
                         break;
@@ -3934,6 +4003,43 @@ function cltd_theme_get_hero_background_markup(array $background) {
     <?php
 
     return (string) ob_get_clean();
+}
+
+/**
+ * Build a captions track for hero background videos.
+ *
+ * @param array $slide
+ * @return string
+ */
+function cltd_theme_get_hero_video_track_markup(array $slide) {
+    $track_src = isset($slide['caption_track']) ? esc_url_raw($slide['caption_track']) : '';
+    $label = isset($slide['caption_label']) ? $slide['caption_label'] : __('Hero Background', 'cltd-theme-oct-2025');
+    $srclang = isset($slide['caption_srclang']) ? $slide['caption_srclang'] : 'en';
+
+    if (!$track_src) {
+        $caption_text = isset($slide['caption_text']) ? wp_strip_all_tags($slide['caption_text']) : '';
+        $caption_text = apply_filters('cltd_theme_hero_video_caption_text', $caption_text, $slide);
+
+        if (!$caption_text) {
+            $caption_text = __('Decorative hero animation showcasing Crystal The Developer branding.', 'cltd-theme-oct-2025');
+        }
+
+        $vtt = "WEBVTT\n\n00:00.000 --> 99:59.999\n" . $caption_text;
+        $track_src = 'data:text/vtt;charset=utf-8,' . rawurlencode($vtt);
+    }
+
+    $track_src = apply_filters('cltd_theme_hero_video_track_src', $track_src, $slide);
+
+    if (!$track_src) {
+        return '';
+    }
+
+    return sprintf(
+        '<track kind="captions" srclang="%s" label="%s" src="%s" default>',
+        esc_attr($srclang),
+        esc_attr($label),
+        esc_attr($track_src)
+    );
 }
 
 /**
@@ -4452,7 +4558,7 @@ function cltd_theme_get_popup_page_map() {
         }
     }
 
-    $default_slugs = apply_filters('cltd_theme_default_popup_pages', ['privacy-policy', 'terms-of-service', 'returns-policy', 'refund-returns']);
+    $default_slugs = apply_filters('cltd_theme_default_popup_pages', ['privacy-policy', 'terms-conditions', 'returns-policy', 'refund-returns']);
     if (!empty($default_slugs)) {
         foreach ($default_slugs as $slug) {
             $slug = sanitize_title($slug);
@@ -4848,7 +4954,7 @@ function cltd_theme_adjust_nav_link_for_auth_state($block_content) {
 
     $label = cltd_theme_extract_nav_label($block_content);
     if ('' === $label) {
-        return $block_content;
+        return cltd_theme_convert_invert_toggle_markup($block_content);
     }
 
     $normalized = strtolower(trim($label));
@@ -4877,7 +4983,7 @@ function cltd_theme_adjust_nav_link_for_auth_state($block_content) {
     }
 
     if ('' === $new_label) {
-        return $block_content;
+        return cltd_theme_convert_invert_toggle_markup($block_content);
     }
 
     $updated = cltd_theme_replace_nav_label($block_content, $new_label);
@@ -4885,7 +4991,7 @@ function cltd_theme_adjust_nav_link_for_auth_state($block_content) {
     $updated = cltd_theme_strip_popup_attrs($updated);
     $updated = cltd_theme_mark_auth_nav_link($updated);
 
-    return $updated;
+    return cltd_theme_convert_invert_toggle_markup($updated);
 }
 
 /**
@@ -4991,6 +5097,148 @@ function cltd_theme_mark_auth_nav_link($html) {
     }
 
     return preg_replace('/<a\b([^>]*)>/i', '<a$1 data-cltd-auth-link="1">', $html, 1);
+}
+
+/**
+ * Convert legacy dark/light links into toggle buttons.
+ *
+ * @param string $html
+ * @return string
+ */
+function cltd_theme_convert_invert_toggle_markup($html) {
+    if (!cltd_theme_is_invert_toggle_markup($html)) {
+        return $html;
+    }
+
+    if (stripos($html, '<button') !== false) {
+        return cltd_theme_ensure_invert_toggle_button_attributes($html);
+    }
+
+    if (!preg_match('/<a\b([^>]*)>(.*?)<\/a>/is', $html, $match)) {
+        return $html;
+    }
+
+    $attribute_string = $match[1];
+    $content = $match[2];
+    $attributes_to_remove = ['href', 'role', 'target', 'rel', 'aria-pressed'];
+    foreach ($attributes_to_remove as $attribute) {
+        $attribute_string = cltd_theme_strip_attribute_from_string($attribute_string, $attribute);
+    }
+
+    $attribute_string = trim(preg_replace('/\s+/', ' ', $attribute_string));
+    $attributes = [];
+    if ('' !== $attribute_string) {
+        $attributes[] = $attribute_string;
+    }
+
+    if (stripos($attribute_string, 'data-cltd-invert-toggle') === false) {
+        $attributes[] = 'data-cltd-invert-toggle="1"';
+    }
+
+    $attributes[] = 'type="button"';
+    $attributes[] = 'aria-pressed="false"';
+
+    return '<button ' . implode(' ', $attributes) . '>' . $content . '</button>';
+}
+
+/**
+ * Ensure toggle buttons provide the correct defaults.
+ *
+ * @param string $html
+ * @return string
+ */
+function cltd_theme_ensure_invert_toggle_button_attributes($html) {
+    return preg_replace_callback(
+        '/<button\b([^>]*)>/i',
+        function($matches) {
+            $attribute_string = $matches[1];
+            $attribute_string = cltd_theme_strip_attribute_from_string($attribute_string, 'aria-pressed');
+
+            $attribute_string = trim(preg_replace('/\s+/', ' ', $attribute_string));
+            $attributes = [];
+            if ('' !== $attribute_string) {
+                $attributes[] = $attribute_string;
+            }
+
+            if (stripos($attribute_string, 'data-cltd-invert-toggle') === false) {
+                $attributes[] = 'data-cltd-invert-toggle="1"';
+            }
+
+            if (stripos($attribute_string, 'type=') === false) {
+                $attributes[] = 'type="button"';
+            }
+
+            $attributes[] = 'aria-pressed="false"';
+
+            return '<button ' . implode(' ', $attributes) . '>';
+        },
+        $html,
+        1
+    );
+}
+
+/**
+ * Determine if markup represents the invert-mode toggle control.
+ *
+ * @param string $html
+ * @return bool
+ */
+function cltd_theme_is_invert_toggle_markup($html) {
+    if (!is_string($html) || '' === $html) {
+        return false;
+    }
+
+    if (stripos($html, 'data-cltd-invert-toggle') !== false) {
+        return true;
+    }
+
+    $label = strtolower(cltd_theme_extract_nav_label($html));
+    if (in_array($label, ['dark', 'light'], true)) {
+        return true;
+    }
+
+    if (!preg_match('/href=(["\'])(.*?)\1/i', $html, $match)) {
+        return false;
+    }
+
+    $href = strtolower(trim($match[2]));
+    if ('' === $href) {
+        return false;
+    }
+
+    if (in_array($href, ['dark', 'light', '#dark', '#light'], true)) {
+        return true;
+    }
+
+    $parts = wp_parse_url($href);
+    if (!empty($parts['fragment']) && in_array(strtolower($parts['fragment']), ['dark', 'light'], true)) {
+        return true;
+    }
+
+    if (!empty($parts['path'])) {
+        $path = '/' . ltrim(strtolower($parts['path']), '/');
+        if (in_array($path, ['/dark', '/light'], true)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Remove a specific attribute from a raw attribute string.
+ *
+ * @param string $attribute_string
+ * @param string $attribute
+ * @return string
+ */
+function cltd_theme_strip_attribute_from_string($attribute_string, $attribute) {
+    if ('' === $attribute_string) {
+        return $attribute_string;
+    }
+
+    $pattern = '/\s+' . preg_quote($attribute, '/') . '=(["\']).*?\1/i';
+    return preg_replace($pattern, ' ', $attribute_string);
 }
 
 /**
@@ -5229,7 +5477,7 @@ function cltd_theme_get_content_defaults() {
         'footer'          => [
             'text'  => __('2025 © Crystal The Developer Inc. All rights reserved', 'cltd-theme-oct-2025'),
             'links' => [
-                ['label' => __('Terms of Service', 'cltd-theme-oct-2025'), 'url' => '/terms-of-service'],
+                ['label' => __('Terms of Service', 'cltd-theme-oct-2025'), 'url' => '/terms-conditions'],
                 ['label' => __('Privacy Policy', 'cltd-theme-oct-2025'), 'url' => '/privacy-policy'],
                 ['label' => __('Refund & Returns', 'cltd-theme-oct-2025'), 'url' => '/refund-returns'],
             ],
@@ -5276,8 +5524,8 @@ function cltd_theme_normalize_footer_links($content) {
     }
 
     $targets = [
-        'terms of service' => '/terms-of-service',
-        'terms & conditions' => '/terms-of-service',
+        'terms of service' => '/terms-conditions',
+        'terms & conditions' => '/terms-conditions',
         'privacy policy' => '/privacy-policy',
         'privacy & cookies' => '/privacy-policy',
         'returns policy' => '/returns-policy',

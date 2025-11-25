@@ -986,11 +986,24 @@
         if (!toggle) {
           return;
         }
-        if (!(toggle.tagName && toggle.tagName.toLowerCase() === 'a')) {
+        const tagName = (toggle.tagName || '').toLowerCase();
+        if (tagName === 'a') {
           toggle.setAttribute('role', 'button');
-          toggle.setAttribute('tabindex', toggle.getAttribute('tabindex') || '0');
-        } else if (toggle.getAttribute('role') === 'button') {
-          toggle.removeAttribute('role');
+          if (!toggle.hasAttribute('tabindex')) {
+            toggle.setAttribute('tabindex', '0');
+          }
+        } else if (tagName === 'button') {
+          if (toggle.getAttribute('role') === 'button') {
+            toggle.removeAttribute('role');
+          }
+          if (toggle.hasAttribute('tabindex') && toggle.getAttribute('tabindex') === '0') {
+            toggle.removeAttribute('tabindex');
+          }
+        } else {
+          toggle.setAttribute('role', 'button');
+          if (!toggle.hasAttribute('tabindex')) {
+            toggle.setAttribute('tabindex', '0');
+          }
         }
 
         toggle.textContent = isActive ? 'Light' : 'Dark';

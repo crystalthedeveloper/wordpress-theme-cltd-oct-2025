@@ -1,0 +1,130 @@
+.cltd-stripe-products {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+@media (max-width: 1200px) {
+  .cltd-stripe-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .cltd-stripe-products {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cltd-product-card {
+  border-radius: 16px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.cltd-product-card__media {
+  margin-bottom: 1rem;
+}
+
+.cltd-product-card__media img {
+  width: 100%;
+  height: 200px;
+  border-radius: 12px;
+}
+.cltd-product-card__title{
+  margin-bottom: 0;
+}
+
+.cltd-product-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cltd-product-card__price {
+  font-weight: 600;
+  margin: 0;
+}
+
+.cltd-product-card__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  padding-top: 0.35rem;
+}
+
+.cltd-accordion {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+  overflow: visible;
+  margin-top: 0.35rem;
+  position: relative;
+}
+
+.cltd-accordion summary {
+  cursor: pointer;
+  font-weight: 700;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.cltd-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.cltd-accordion summary::after {
+  content: '⌄';
+  font-size: 0.9rem;
+  color: #6b7280;
+  transition: transform 0.2s ease;
+}
+
+.cltd-accordion[open] summary::after {
+  transform: rotate(-180deg);
+}
+
+.cltd-accordion__content {
+  position: absolute;
+  left: -1px;
+  right: -1px;
+  top: calc(100% - 1px);
+  padding: 0 1rem 1rem;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-bottom-left-radius: 12px;
+  border-bottom-right-radius: 12px;
+  box-shadow: 0 12px 30px rgba(17, 24, 39, 0.12);
+  z-index: 10;
+}
+
+.cltd-accordion:not([open]) .cltd-accordion__content {
+  display: none;
+}
+
+.cltd-feature-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.cltd-license-line {
+  margin: 0 0 0.4rem 0;
+  line-height: 1.5;
+  font-size: 1rem;
+}
+
+.cltd-product-card .cltd-button {
+  margin-top: auto;
+}
